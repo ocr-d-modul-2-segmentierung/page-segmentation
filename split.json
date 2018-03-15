@@ -1,0 +1,39 @@
+{
+  "label": "All data",
+  "train": [
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Barclay/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5049/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5051/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5056/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5060/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5064/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5066/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/HBR2013/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/OCR-D/dataset_0_10_20.json"
+  ],
+  "test": [
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Barclay/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5049/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5051/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5056/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5060/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5064/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5066/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/HBR2013/dataset_0_10_20.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/OCR-D/dataset_0_10_20.json"
+  ],
+  "eval": [
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/Barclay/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5049/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5051/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5056/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5060/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5064/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5066/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/HBR2013/dataset_-1_0_0.json",
+    "/scratch/Datensets_Bildverarbeitung/page_segmentation/OCR-D/dataset_-1_0_0.json",
+  ]
+}

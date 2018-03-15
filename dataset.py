@@ -60,6 +60,7 @@ def color_to_label(mask):
         (255, 255, 0),
         (128, 0, 0),
         (0, 255, 255),
+        (128, 128, 0),
     ]
     labels = [
         0,
@@ -71,6 +72,7 @@ def color_to_label(mask):
         1,
         1,
         1,
+        2,
     ]
 
     out = np.zeros(mask.shape[0:2], dtype=np.int32)
@@ -103,97 +105,109 @@ def label_to_colors(mask):
     return out
 
 
-def load_images(dataset_file_entry):
-    target_line_height = 7
-    scale = target_line_height / dataset_file_entry["line_height_px"]
+class DatasetLoader:
+    def __init__(self, target_line_height):
+        self.target_line_height = target_line_height
 
-    # inverted grayscale (black background)
-    bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["binary_path"], flatten=True), scale, interp="nearest") / 255
-    img = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["image_path"], flatten=True), scale, interp="lanczos") / 255
+    def load_images(self, dataset_file_entry):
+        scale = self.target_line_height / dataset_file_entry["line_height_px"]
 
-    # color
-    mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry["mask_path"], flatten=False), scale, interp="nearest"))
+        # inverted grayscale (black background)
+        bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["binary_path"], flatten=True), scale, interp="nearest") / 255
+        img = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["image_path"], flatten=True), bin.shape, interp="lanczos") / 255
 
-    x, y = mask.shape
+        # color
+        mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry["mask_path"], flatten=False), bin.shape, interp="nearest"))
 
-    tx = ((x // 2) // 2) * 4
-    ty = ((y // 2) // 2) * 4
+        x, y = mask.shape
 
-    if x % 4 != 0:
-        px = tx - x + 4
-        x = x + px
-    else:
-        px = 0
+        f = 2 ** 3
+        tx = (((x // 2) // 2) // 2) * 8
+        ty = (((y // 2) // 2) // 2) * 8
 
-    if y % 4 != 0:
-        py = ty - y + 4
-        y = y + py
-    else:
-        py = 0
+        if x % f != 0:
+            px = tx - x + f
+            x = x + px
+        else:
+            px = 0
 
-    pad = ((px, 0), (py, 0))
-    mask = np.pad(mask, pad, 'edge')
-    img = np.pad(img, pad, 'edge')
-    bin = np.pad(bin, pad, 'edge')
+        if y % f != 0:
+            py = ty - y + f
+            y = y + py
+        else:
+            py = 0
 
-    def check(i):
-        assert(i.shape[0] % 4 == 0)
-        assert(i.shape[1] % 4 == 0)
+        pad = ((px, 0), (py, 0))
+        mask = np.pad(mask, pad, 'edge')
+        img = np.pad(img, pad, 'edge')
+        bin = np.pad(bin, pad, 'edge')
 
-    check(mask)
-    check(img)
-    check(bin)
+        def check(i):
+            if i.shape[0] % f != 0 or i.shape[1] % f != 0:
+                raise Exception("Padding not working. Output shape ({}x{}) should be divisible by {}. Dataset entry: {}".format(i.shape[0], i.shape[1], f, dataset_file_entry))
 
-    assert(mask.shape == img.shape)
+        check(mask)
+        check(img)
+        check(bin)
 
-    dataset_file_entry["binary"] = bin
-    dataset_file_entry["image"] = img
-    dataset_file_entry["mask"] = mask
+        assert(mask.shape == img.shape)
 
-    return dataset_file_entry
+        dataset_file_entry["binary"] = bin
+        dataset_file_entry["image"] = img
+        dataset_file_entry["mask"] = mask
 
+        return dataset_file_entry
 
-def load_data(all_dataset_files):
-    with multiprocessing.Pool(processes=12) as p:
-        out = list(tqdm.tqdm(p.imap(load_images, all_dataset_files), total=len(all_dataset_files)))
+    def load_data(self, all_dataset_files):
+        with multiprocessing.Pool(processes=12) as p:
+            out = list(tqdm.tqdm(p.imap(self.load_images, all_dataset_files), total=len(all_dataset_files)))
 
-    return out
+        return out
 
-def load_test():
-    dataset_root = "/scratch/Datensets_Bildverarbeitung/page_segmentation"
+    def load_data_from_json(self, files, type):
+        all_files = []
+        for f in files:
+            all_files += json.load(open(f, 'r'))[type]
 
-    ds_ocr_d = ("OCR-D", None)
-    ds1 = ("GW5060", 31)
-    ds2 = ("GW5064", 36)
-    ds3 = ("GW5066", 18)
+        print("Loading {} data of type {}".format(len(all_files), type))
+        return self.load_data(all_files)
 
-    all_train_files, all_test_files = [], []
-    for dataset, scale in [ds_ocr_d]:
-        all_train_files += list_dataset(os.path.join(dataset_root, dataset), scale)
+    def load_test(self):
+        dataset_root = "/scratch/Datensets_Bildverarbeitung/page_segmentation"
 
-    GW5064_data_files = list_dataset(os.path.join(dataset_root, "GW5064"), line_height_px=36)
-    OCR_D_data_files = list_dataset(os.path.join(dataset_root, "OCR-D"), line_height_px=None)
-    indices = list(range(len(GW5064_data_files)))
-    shuffle(indices)
-    train_indices = indices[:20]
-    test_indices = indices[20:]
+        ds_ocr_d = ("OCR-D", None)
+        ds1 = ("GW5060", 31)
+        ds2 = ("GW5064", 36)
+        ds3 = ("GW5066", 18)
 
-    # all_train_data = load_data([GW5064_data_files[i] for i in train_indices])
-    # all_test_data = load_data([GW5064_data_files[i] for i in test_indices])
+        all_train_files, all_test_files = [], []
+        for dataset, scale in [ds_ocr_d]:
+            all_train_files += list_dataset(os.path.join(dataset_root, dataset), scale)
 
-    all_train_data = load_data(OCR_D_data_files)
-    all_test_data = []
+        GW5064_data_files = list_dataset(os.path.join(dataset_root, "GW5064"), line_height_px=36)
+        OCR_D_data_files = list_dataset(os.path.join(dataset_root, "OCR-D"), line_height_px=None)
+        indices = list(range(len(GW5064_data_files)))
+        shuffle(indices)
+        train_indices = indices[:20]
+        test_indices = indices[20:]
 
-    # all_train_data = load_data(all_train_files[:])
-    # all_test_data = load_data(all_test_files[:])
+        # all_train_data = load_data([GW5064_data_files[i] for i in train_indices])
+        # all_test_data = load_data([GW5064_data_files[i] for i in test_indices])
 
-    return all_train_data, all_test_data
+        all_train_data = self.load_data(OCR_D_data_files)
+        all_test_data = []
+
+        # all_train_data = load_data(all_train_files[:])
+        # all_test_data = load_data(all_test_files[:])
+
+        return all_train_data, all_test_data
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    load_test()
+    loader = DatasetLoader(4)
+    loader.load_test()
 
 
     working_dir = "/scratch/wick/datasets/page_segmentation/Prediction/FCN_tf/train_ocr-d_test_5066"
