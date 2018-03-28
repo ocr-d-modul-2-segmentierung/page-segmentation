@@ -9,7 +9,7 @@ import json
 from random import shuffle
 
 
-def list_dataset(root_dir, line_height_px=None):
+def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", images_dir_="images", masks_dir_="masks"):
     def listdir(d):
         return [os.path.join(d, f) for f in sorted(os.listdir(d))]
 
@@ -17,9 +17,9 @@ def list_dataset(root_dir, line_height_px=None):
         with open(file, 'r') as f:
             return json.load(f)["char_height"]
 
-    binary_dir = os.path.join(root_dir, "binary_images")
-    images = os.path.join(root_dir, "images")
-    masks = os.path.join(root_dir, "masks")
+    binary_dir = os.path.join(root_dir, binary_dir_)
+    images = os.path.join(root_dir, images_dir_)
+    masks = os.path.join(root_dir, masks_dir_)
 
     for d in [root_dir, binary_dir, images, masks]:
         if not os.path.exists(d):
@@ -69,7 +69,7 @@ def color_to_label(mask):
         2,
         1,
         1,
-        1,
+        3,
         1,
         1,
         2,
@@ -90,11 +90,13 @@ def label_to_colors(mask):
         (255, 255, 255),
         (255, 0, 0),
         (0, 255, 0),
+        (255, 255, 0),
     ]
     labels = [
         0,
         1,
         2,
+        3,
     ]
     out = np.zeros(mask.shape + (3,), dtype=np.int64)
     for color, label in zip(colors, labels):
@@ -106,8 +108,9 @@ def label_to_colors(mask):
 
 
 class DatasetLoader:
-    def __init__(self, target_line_height):
+    def __init__(self, target_line_height, prediction=False):
         self.target_line_height = target_line_height
+        self.prediction = prediction
 
     def load_images(self, dataset_file_entry):
         scale = self.target_line_height / dataset_file_entry["line_height_px"]
@@ -117,9 +120,10 @@ class DatasetLoader:
         img = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["image_path"], flatten=True), bin.shape, interp="lanczos") / 255
 
         # color
-        mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry["mask_path"], flatten=False), bin.shape, interp="nearest"))
+        if not self.prediction:
+            mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry["mask_path"], flatten=False), bin.shape, interp="nearest"))
 
-        x, y = mask.shape
+        x, y = bin.shape
 
         f = 2 ** 3
         tx = (((x // 2) // 2) // 2) * 8
@@ -138,23 +142,26 @@ class DatasetLoader:
             py = 0
 
         pad = ((px, 0), (py, 0))
-        mask = np.pad(mask, pad, 'edge')
         img = np.pad(img, pad, 'edge')
         bin = np.pad(bin, pad, 'edge')
+
+        if not self.prediction:
+            mask = np.pad(mask, pad, 'edge')
 
         def check(i):
             if i.shape[0] % f != 0 or i.shape[1] % f != 0:
                 raise Exception("Padding not working. Output shape ({}x{}) should be divisible by {}. Dataset entry: {}".format(i.shape[0], i.shape[1], f, dataset_file_entry))
 
-        check(mask)
         check(img)
         check(bin)
 
-        assert(mask.shape == img.shape)
+        if not self.prediction:
+            check(mask)
+            assert(mask.shape == img.shape)
+            dataset_file_entry["mask"] = mask
 
         dataset_file_entry["binary"] = bin
         dataset_file_entry["image"] = img
-        dataset_file_entry["mask"] = mask
 
         return dataset_file_entry
 

@@ -12,7 +12,7 @@ import json
 parser = argparse.ArgumentParser()
 parser.add_argument("--l_rate", type=float, default=1e-2)
 parser.add_argument("--l_rate_drop_factor", type=float, default=0.1)
-parser.add_argument("--n_classes", type=int, default=3)
+parser.add_argument("--n_classes", type=int, default=4)
 parser.add_argument("--target_line_height", type=int, default=6,
                     help="Scale the data images so that the line height matches this value")
 parser.add_argument("--output", type=str, default='./saved_model/FCN-All-for-GW5064')
@@ -212,8 +212,10 @@ with tf.Session() as sess:
 
     compute_total("Train", train_data)
     compute_total("Test", test_data)
-    compute_total("Eval", eval_data)
 
     if len(eval_data) > 0 and args.prediction_dir:
         compute_total("Eval", eval_data, output_dir=args.prediction_dir)
+
+    else:
+        compute_total("Eval", eval_data)
 

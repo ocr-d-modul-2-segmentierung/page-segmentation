@@ -13,12 +13,21 @@ parser.add_argument("--char_height_of_n", type=int, default=None)
 parser.add_argument("--n_eval", type=int, default=0, help="For final model evaluation")
 parser.add_argument("--n_train", type=int, default=-1, help="For training")
 parser.add_argument("--n_test", type=int, default=20, help="For picking the best model")
+parser.add_argument("--binary_dir", type=str, default="binary_images",
+                    help="directory name of the binary images")
+parser.add_argument("--images_dir", type=str, default="images",
+                    help="directory name of the images on which to train")
+parser.add_argument("--masks_dir", type=str, default="masks",
+                    help="directory name of the masks")
 
 args = parser.parse_args()
 
 seed(args.seed)
 
-data_files = list_dataset(args.dataset_path, args.char_height_of_n)
+data_files = list_dataset(args.dataset_path, args.char_height_of_n,
+                          binary_dir_=args.binary_dir,
+                          images_dir_=args.images_dir,
+                          masks_dir_=args.masks_dir)
 
 if sum([args.n_eval < 0, args.n_train < 0, args.n_test < 0]) > 1:
     raise Exception("Only one dataset may get all remaining files")

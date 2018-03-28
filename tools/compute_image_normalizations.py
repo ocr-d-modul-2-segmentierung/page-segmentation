@@ -8,14 +8,14 @@ import tqdm
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--input_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/Barclay/binary_images",
+parser.add_argument("--input_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5061/Wuerzburg/binary_images",
                     help="Image directory to process")
-parser.add_argument("--average_all", action="store_true",
+parser.add_argument("--average_all", action="store_true", default=True,
                     help="bla")
 parser.add_argument("--cut_left", type=float, default=0.05)
 parser.add_argument("--cut_right", type=float, default=0.05)
 parser.add_argument("--inverse", action="store_false", default=True)
-parser.add_argument("--output_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/Barclay/normalizations",
+parser.add_argument("--output_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5061/Wuerzburg/normalizations",
                     help="The output dir for the info files")
 
 args = parser.parse_args()

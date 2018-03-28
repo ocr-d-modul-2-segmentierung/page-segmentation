@@ -24,8 +24,8 @@ def model(input, n_classes):
     deconv5 = tf.layers.conv2d_transpose(deconv4, 40, (2, 2), padding="same", strides=(2, 2), activation=None)
 
     # prediction
-    logits = tf.layers.conv2d(deconv5, 3, (1, 1), (1, 1))
-    probs = tf.nn.softmax(logits, -1)
-    prediction = tf.argmax(logits, axis=-1)
+    logits = tf.layers.conv2d(deconv5, n_classes, (1, 1), (1, 1), name="logits")
+    probs = tf.nn.softmax(logits, -1, name="probabilities")
+    prediction = tf.argmax(logits, axis=-1, name="prediction")
 
     return prediction, logits, probs
