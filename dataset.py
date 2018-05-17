@@ -9,9 +9,13 @@ import json
 from random import shuffle
 
 
-def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", images_dir_="images", masks_dir_="masks"):
-    def listdir(d):
-        return [os.path.join(d, f) for f in sorted(os.listdir(d))]
+def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", images_dir_="images", masks_dir_="masks",
+                 masks_postfix="", normalizations_dir="normalizations"):
+    def listdir(d, postfix="", not_postfix=False):
+        if not_postfix:
+            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if not f.endswith(postfix)]
+        else:
+            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(postfix)]
 
     def extract_char_height(file):
         with open(file, 'r') as f:
@@ -25,10 +29,10 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
         if not os.path.exists(d):
             raise Exception("Dataset dir does not exist at '%s'" % d)
 
-    bin, img, m = listdir(binary_dir), listdir(images), listdir(masks)
+    bin, img, m = listdir(binary_dir), listdir(images, masks_postfix, True), listdir(masks, masks_postfix)
 
     if not line_height_px:
-        norm_dir = os.path.join(root_dir, "normalizations")
+        norm_dir = os.path.join(root_dir, normalizations_dir)
         if not os.path.exists(norm_dir):
             raise Exception("Norm dir does not exist at '{}'".format(norm_dir))
 
@@ -166,7 +170,7 @@ class DatasetLoader:
         return dataset_file_entry
 
     def load_data(self, all_dataset_files):
-        with multiprocessing.Pool(processes=12) as p:
+        with multiprocessing.Pool(processes=12, maxtasksperchild=1) as p:
             out = list(tqdm.tqdm(p.imap(self.load_images, all_dataset_files), total=len(all_dataset_files)))
 
         return out

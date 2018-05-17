@@ -10,15 +10,18 @@ parser.add_argument("--dataset_path", type=str,
 parser.add_argument("--output_file", type=str,
                     default="/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius-0-.json")
 parser.add_argument("--char_height_of_n", type=int, default=None)
-parser.add_argument("--n_eval", type=int, default=0, help="For final model evaluation")
-parser.add_argument("--n_train", type=int, default=-1, help="For training")
-parser.add_argument("--n_test", type=int, default=20, help="For picking the best model")
+parser.add_argument("--n_eval", type=float, default=0, help="For final model evaluation")
+parser.add_argument("--n_train", type=float, default=-1, help="For training")
+parser.add_argument("--n_test", type=float, default=20, help="For picking the best model")
 parser.add_argument("--binary_dir", type=str, default="binary_images",
                     help="directory name of the binary images")
 parser.add_argument("--images_dir", type=str, default="images",
                     help="directory name of the images on which to train")
 parser.add_argument("--masks_dir", type=str, default="masks",
                     help="directory name of the masks")
+parser.add_argument("--masks_postfix", type=str, default="",
+                    help="Postfix to distinguish masks and images")
+parser.add_argument("--normalizations_dir", type=str, default="normalizations")
 
 args = parser.parse_args()
 
@@ -27,7 +30,20 @@ seed(args.seed)
 data_files = list_dataset(args.dataset_path, args.char_height_of_n,
                           binary_dir_=args.binary_dir,
                           images_dir_=args.images_dir,
-                          masks_dir_=args.masks_dir)
+                          masks_dir_=args.masks_dir,
+                          masks_postfix=args.masks_postfix,
+                          normalizations_dir=args.normalizations_dir)
+
+if 0 < args.n_eval < 1:
+    args.n_eval = args.n_eval * len(data_files)
+if 0 < args.n_test < 1:
+    args.n_test = args.n_test * len(data_files)
+if 0 < args.n_train < 1:
+    args.n_train = args.n_train * len(data_files)
+
+args.n_eval = int(args.n_eval)
+args.n_test = int(args.n_test)
+args.n_train = int(args.n_train)
 
 if sum([args.n_eval < 0, args.n_train < 0, args.n_test < 0]) > 1:
     raise Exception("Only one dataset may get all remaining files")

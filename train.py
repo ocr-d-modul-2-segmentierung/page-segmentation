@@ -22,7 +22,7 @@ parser.add_argument("--early_stopping_test_interval", type=int, default=1000)
 parser.add_argument("--early_stopping_max_keep", type=int, default=10)
 parser.add_argument("--early_stopping_max_l_rate_drops", type=int, default=3)
 parser.add_argument("--prediction_dir", type=str, default="prediction-All-for-GW5064")
-parser.add_argument("--split_file", type=str, default="split.json",
+parser.add_argument("--split_file", type=str,
                     help="Load splits from a json file")
 parser.add_argument("--train", type=str, nargs="*", default=[])
 parser.add_argument("--test", type=str, nargs="*", default=[],
