@@ -8,20 +8,25 @@ import tensorflow as tf
 import numpy as np
 import skimage.io as img_io
 
+def glob_all(filenames):
+    files = []
+    for f in filenames:
+        files += glob.glob(f)
+
+    return files
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--load", type=str, required=True,
                     help="Model to load")
-parser.add_argument("--data_dir", type=str, required=True,
-                    help="Data dir containing binary_images and images")
 parser.add_argument("--char_height", type=int, required=True,
                     help="Average height of character m or n, ...")
 parser.add_argument("--target_line_height", type=int, default=6,
                     help="Scale the data images so that the line height matches this value (must be the same as in training)")
 parser.add_argument("--output", required=True,
                     help="Output dir")
-parser.add_argument("--binary_dir", type=str, default="binary_images",
+parser.add_argument("--binary", type=str, required=True, nargs="+",
                     help="directory name of the binary images")
-parser.add_argument("--images_dir", type=str, default="images",
+parser.add_argument("--images", type=str, required=True, nargs="+",
                     help="directory name of the images on which to train")
 args = parser.parse_args()
 
@@ -31,13 +36,9 @@ def mkdir(path):
 
 mkdir(args.output)
 
-images_dir = os.path.join(args.data_dir, args.images_dir)
-binary_dir = os.path.join(args.data_dir, args.binary_dir)
-if not os.path.exists(images_dir) or not os.path.exists(binary_dir):
-    raise Exception("Both {} and {} must exists and contain the desired image files".format(images_dir, binary_dir))
 
-image_file_paths = [os.path.join(images_dir, f) for f in sorted(os.listdir(images_dir))]
-binary_file_paths = [os.path.join(binary_dir, f) for f in sorted(os.listdir(binary_dir))]
+image_file_paths = sorted(glob_all(args.images))
+binary_file_paths = sorted(glob_all(args.bubary))
 
 if len(image_file_paths) != len(binary_file_paths):
     raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
