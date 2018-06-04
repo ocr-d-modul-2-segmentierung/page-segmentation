@@ -1,5 +1,5 @@
 import argparse
-from dataset import list_dataset
+from lib.dataset import list_dataset
 from random import shuffle, seed
 import json
 
