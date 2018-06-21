@@ -6,6 +6,7 @@ import tqdm
 import tensorflow as tf
 import numpy as np
 import skimage.io as img_io
+import scipy.misc as misc
 import json
 
 
@@ -36,8 +37,10 @@ def main():
                         help="directory name of the binary images")
     parser.add_argument("--images", type=str, required=True, nargs="+",
                         help="directory name of the images on which to train")
-    parser.add_argument("--norm", type=str, required=True, nargs="+",
+    parser.add_argument("--norm", type=str, required=False, nargs="+",
                         help="directory name of the norms on which to train")
+    parser.add_argument("--keep_low_res", action="store_true",
+                        help="keep low resolution prediction instead of rescaling output to orignal image size")
     args = parser.parse_args()
 
     mkdir(args.output)
@@ -45,7 +48,9 @@ def main():
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
-    norm_file_paths = sorted(glob_all(args.norm))
+    if args.norm:
+        norm_file_paths = sorted(glob_all(args.norm))
+    else:norm_file_paths = []
 
     if len(image_file_paths) != len(binary_file_paths):
         raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
@@ -103,6 +108,12 @@ def main():
             color_mask = label_to_colors(pred[0])
             foreground = np.stack([(1 - sample["image"] / 255.0)] * 3, axis=-1)
             inv_binary = np.stack([(sample["binary"])] * 3, axis=-1)
+
+            if not args.keep_low_res:
+                color_mask = misc.imresize(color_mask, sample["original_shape"], interp="nearest")
+                foreground = misc.imresize(foreground, sample["original_shape"])
+                inv_binary = misc.imresize(inv_binary, sample["original_shape"], interp="nearest")
+
             overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
             inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
             img_io.imsave(os.path.join(args.output, "color", filename), color_mask)

@@ -12,18 +12,18 @@ import json
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--l_rate", type=float, default=1e-2)
+    parser.add_argument("--l_rate", type=float, default=1e-3)
     parser.add_argument("--l_rate_drop_factor", type=float, default=0.1)
     parser.add_argument("--n_classes", type=int, default=4)
     parser.add_argument("--target_line_height", type=int, default=6,
                         help="Scale the data images so that the line height matches this value")
-    parser.add_argument("--output", type=str, default='./saved_model/FCN-All-for-GW5064')
+    parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--load", type=str, default=None)
     parser.add_argument("--n_iter", type=int, default=300000)
     parser.add_argument("--early_stopping_test_interval", type=int, default=1000)
     parser.add_argument("--early_stopping_max_keep", type=int, default=10)
     parser.add_argument("--early_stopping_max_l_rate_drops", type=int, default=3)
-    parser.add_argument("--prediction_dir", type=str, default="prediction-All-for-GW5064")
+    parser.add_argument("--prediction_dir", type=str)
     parser.add_argument("--split_file", type=str,
                         help="Load splits from a json file")
     parser.add_argument("--train", type=str, nargs="*", default=[])
@@ -76,7 +76,7 @@ def main():
     loss = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(
         labels=tf.cast(masks, tf.int32),
         logits=logits,
-        weights=binary_inputs * 10 + 1,
+        weights=binary_inputs * 0 + 1,
     ))
 
     if solver == "Adam":
@@ -88,7 +88,7 @@ def main():
     grads = [grad for grad, _ in gvs]
     global_norm = True
     if global_norm:
-        grads, _ = tf.clip_by_global_norm(grads, clip_norm=1000)
+        grads, _ = tf.clip_by_global_norm(grads, clip_norm=1)
     else:
         grads = [tf.clip_by_value(grad, -0.1, 0.1) for grad in grads]
 
@@ -230,7 +230,7 @@ def main():
                 if output_dir:
                     filename = os.path.basename(sample["image_path"])
                     color_mask = label_to_colors(pred[0])
-                    foreground = np.stack([(1 - sample["image"])] * 3, axis=-1)
+                    foreground = np.stack([(1 - sample["image"] / 255)] * 3, axis=-1)
                     inv_binary = np.stack([(sample["binary"])] * 3, axis=-1)
                     overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
                     inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)

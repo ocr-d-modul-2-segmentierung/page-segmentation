@@ -8,14 +8,14 @@ import tqdm
 import json
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--input_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5061/Wuerzburg/binary_images",
+parser.add_argument("--input_dir", type=str, required=True,
                     help="Image directory to process")
 parser.add_argument("--average_all", action="store_true", default=True,
                     help="bla")
 parser.add_argument("--cut_left", type=float, default=0.05)
 parser.add_argument("--cut_right", type=float, default=0.05)
 parser.add_argument("--inverse", action="store_false", default=True)
-parser.add_argument("--output_dir", type=str, default="/scratch/Datensets_Bildverarbeitung/page_segmentation/GW5061/Wuerzburg/normalizations",
+parser.add_argument("--output_dir", type=str, required=True,
                     help="The output dir for the info files")
 
 args = parser.parse_args()
@@ -51,15 +51,18 @@ def computeCharHeight(file_name):
     valid_letter_heights = stats[possible_letter, cv2.CC_STAT_HEIGHT]
 
     valid_letter_heights.sort()
-    mode = valid_letter_heights[int(len(valid_letter_heights) / 2)]
-    return mode
+    try:
+        mode = valid_letter_heights[int(len(valid_letter_heights) / 2)]
+        return mode
+    except:
+        return None
 
 
 with multiprocessing.Pool(processes=12) as p:
-    char_heights = list(tqdm.tqdm(p.imap(computeCharHeight, files), total=len(files)))
+    char_heights = [v for v in tqdm.tqdm(p.imap(computeCharHeight, files), total=len(files))]
 
 if args.average_all:
-    av_height = np.mean(char_heights)
+    av_height = np.mean([c for c in char_heights if c])
     char_heights = [av_height] * len(char_heights)
 
 if args.output_dir and not os.path.exists(args.output_dir):

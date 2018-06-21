@@ -5,10 +5,8 @@ import json
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=67452)
-parser.add_argument("--dataset_path", type=str,
-                    default="/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius")
-parser.add_argument("--output_file", type=str,
-                    default="/scratch/Datensets_Bildverarbeitung/page_segmentation/Badius-0-.json")
+parser.add_argument("--dataset_path", type=str, required=True)
+parser.add_argument("--output_file", type=str, required=True)
 parser.add_argument("--char_height_of_n", type=int, default=None)
 parser.add_argument("--n_eval", type=float, default=0, help="For final model evaluation")
 parser.add_argument("--n_train", type=float, default=-1, help="For training")
@@ -22,6 +20,8 @@ parser.add_argument("--masks_dir", type=str, default="masks",
 parser.add_argument("--masks_postfix", type=str, default="",
                     help="Postfix to distinguish masks and images")
 parser.add_argument("--normalizations_dir", type=str, default="normalizations")
+parser.add_argument("--verify_filenames", action="store_true",
+                    help="File names must match")
 
 args = parser.parse_args()
 
@@ -32,7 +32,8 @@ data_files = list_dataset(args.dataset_path, args.char_height_of_n,
                           images_dir_=args.images_dir,
                           masks_dir_=args.masks_dir,
                           masks_postfix=args.masks_postfix,
-                          normalizations_dir=args.normalizations_dir)
+                          normalizations_dir=args.normalizations_dir,
+                          verify_filenames=args.verify_filenames)
 
 if 0 < args.n_eval < 1:
     args.n_eval = args.n_eval * len(data_files)
