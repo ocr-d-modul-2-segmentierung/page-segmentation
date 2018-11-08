@@ -8,6 +8,7 @@ import skimage.io as img_io
 import numpy as np
 import os
 from dataclasses import dataclass
+import scipy.misc as misc
 
 
 def mkdir(path):
@@ -21,6 +22,7 @@ class PredictSettings:
     network: str = None
     output: str = None
     mode: str = 'meta'  # meta, deploy or test
+    high_res_output: bool = False
 
 
 class Predictor:
@@ -75,6 +77,12 @@ class Predictor:
             inv_binary = np.stack([(data.binary)] * 3, axis=-1)
             overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
             inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
+
+            if self.settings.high_res_output:
+                color_mask = misc.imresize(color_mask[data.xpad:, data.ypad:], data.original_shape, interp="nearest")
+                foreground = misc.imresize(foreground[data.xpad:, data.ypad:], data.original_shape)
+                inv_binary = misc.imresize(inv_binary[data.xpad:, data.ypad:], data.original_shape, interp="nearest")
+
             img_io.imsave(os.path.join(self.settings.output, "color", filename), color_mask)
             img_io.imsave(os.path.join(self.settings.output, "overlay", filename), overlay_mask)
             img_io.imsave(os.path.join(self.settings.output, "inverted", filename), inverted_overlay_mask)

@@ -21,6 +21,8 @@ class SingleData:
     mask_path: str = None
     line_height_px: int = 1
     original_shape: Tuple[int, int] = None
+    xpad = 0
+    ypad = 0
 
 
 @dataclass
@@ -205,6 +207,8 @@ class DatasetLoader:
         dataset_file_entry.binary = bin.astype(np.uint8)
         dataset_file_entry.image = (img * 255).astype(np.uint8)
         dataset_file_entry.original_shape = original_shape
+        dataset_file_entry.xpad = px
+        dataset_file_entry.ypad = py
 
         return dataset_file_entry
 

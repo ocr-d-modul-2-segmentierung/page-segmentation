@@ -84,6 +84,7 @@ def main():
         mode='meta',
         network=os.path.abspath(args.load),
         output=args.output,
+        high_res_output=not args.keep_low_res
     )
     predictor = Predictor(settings)
 
