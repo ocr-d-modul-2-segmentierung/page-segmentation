@@ -89,7 +89,7 @@ def main():
     predictor = Predictor(settings)
 
     print("Starting prediction")
-    for i, (pred, data) in tqdm.tqdm(enumerate(predictor.predict(data))):
+    for i, pred in tqdm.tqdm(enumerate(predictor.predict(data))):
         pass
 
 

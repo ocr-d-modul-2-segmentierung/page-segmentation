@@ -1,8 +1,8 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Generator
 from .network import Network
 import tensorflow as tf
 from .model import model as default_model
-from .dataset import Dataset
+from .dataset import Dataset, SingleData
 from tqdm import tqdm
 import skimage.io as img_io
 import numpy as np
@@ -14,6 +14,12 @@ import scipy.misc as misc
 def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+class Prediction(NamedTuple):
+    labels: np.ndarray
+    probabilities: np.ndarray
+    data: SingleData
 
 
 @dataclass
@@ -47,11 +53,11 @@ class Predictor:
             mkdir(os.path.join(output_dir, "color"))
             mkdir(os.path.join(output_dir, "inverted"))
 
-    def predict(self, dataset: Dataset):
+    def predict(self, dataset: Dataset) -> Generator[Prediction, None, None]:
         for data in dataset.data:
             pred, prob = self.network.predict_single_data(data)
             self.output_data(pred, data)
-            yield pred, data
+            yield Prediction(pred, prob, data)
 
     def test(self, dataset: Dataset):
         self.network.set_data(dataset)
