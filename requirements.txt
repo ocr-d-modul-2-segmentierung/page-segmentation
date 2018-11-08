@@ -3,3 +3,4 @@ scipy
 scikit-image
 tqdm
 opencv-python
+dataclasses

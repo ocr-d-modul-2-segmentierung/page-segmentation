@@ -1,0 +1,107 @@
+from .dataset import Dataset
+from typing import NamedTuple, List
+from tqdm import tqdm
+import tensorflow as tf
+
+
+class TrainSettings(NamedTuple):
+    n_iter: int
+    n_classes: int
+    l_rate: float
+    train_data: Dataset
+    validation_data: Dataset
+    load: str
+    display: int
+    output: str
+    early_stopping_test_interval: int
+    early_stopping_max_keep: int
+    early_stopping_on_accuracy: bool
+    threads: int
+
+
+class Trainer:
+    def __init__(self, settings: TrainSettings):
+        self.settings = settings
+
+        from .network import Network
+        from .model import model
+
+        self.graph = tf.Graph()
+        self.session = tf.Session(graph=self.graph,
+                                  config=tf.ConfigProto(
+                                      intra_op_parallelism_threads=settings.threads,
+                                      inter_op_parallelism_threads=settings.threads,
+                                  ))
+
+        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=False)
+        self.test_net = Network("test", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=True)
+
+        self.deploy_graph = tf.Graph()
+        self.deploy_session = tf.Session(graph=self.deploy_graph)
+        self.deploy_net = Network("deploy", self.deploy_graph, self.deploy_session, model, settings.n_classes, l_rate=settings.l_rate)
+
+        self.train_net.set_data(settings.train_data)
+        self.test_net.set_data(settings.validation_data)
+
+        if len(settings.train_data) == 0 and settings.n_iter > 0:
+            raise Exception("No training files specified. Maybe set n_iter=0")
+
+    def train(self):
+        settings = self.settings
+
+        def compute_pgpa(net, fg_not_a=not settings.early_stopping_on_accuracy):
+            total_a, total_fg = 0, 0
+            for logits, a, fg, _ in tqdm(net.test_dataset(), total=net.n_data()):
+                total_a += a / net.n_data()
+                total_fg += fg / net.n_data()
+
+            return total_fg if fg_not_a else total_a
+
+        self.train_net.prepare()
+        if settings.load:
+            self.train_net.load_weights(settings.load)
+
+        current_best_fgpa = 0
+        current_best_model_iter = 0
+        current_best_iters = 0
+        avg_loss, avg_acc, avg_fgpa = 10, 0, 0
+        for step in range(settings.n_iter):
+            l, a, fg = self.train_net.train_dataset()
+
+            # m = max([np.abs(np.mean(g)) for g, _ in gs])
+            # print(m)
+            avg_loss = 0.99 * avg_loss + 0.01 * l
+            avg_acc = 0.99 * avg_acc + 0.01 * a
+            avg_fgpa = 0.99 * avg_fgpa + 0.01 * fg
+            if step % settings.display == 0:
+                print("#%05d (%.5f): Acc=%.5f FgPA=%.5f" % (step, avg_loss, avg_acc, avg_fgpa))
+
+            if (step + 1) % settings.early_stopping_test_interval == 0:
+                print("checking for early stopping")
+                test_fgpa = compute_pgpa(self.test_net)
+                if test_fgpa > current_best_fgpa:
+                    current_best_fgpa = test_fgpa
+                    current_best_model_iter = step + 1
+                    current_best_iters = 0
+                    print("New best model at iter {} with FgPA={}".format(current_best_model_iter, current_best_fgpa))
+
+                    print("Saving the model to {}".format(settings.output))
+                    self.train_net.save_checkpoint(settings.output)
+                    self.deploy_net.load_weights(settings.output, restore_only_trainable=True)
+                    self.deploy_net.save_checkpoint(settings.output)
+                else:
+                    current_best_iters += 1
+                    print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters, current_best_fgpa))
+
+                if current_best_iters >= settings.early_stopping_max_keep:
+                    print('early stopping at %d' % (step + 1))
+                    break
+
+        self.train_net.prepare(False)  # reset the net, required to prevent blocking of tensorflow on shutdown
+        self.test_net.prepare(False)   # possibly the garbage collector cant resolve the tf.Dataset
+
+        print("Best model at iter {} with fgpa of {}".format(current_best_model_iter, current_best_fgpa))
+        if current_best_iters > 0:
+            # restore best model
+            self.test_net.load_weights(settings.output, restore_only_trainable=True)
+

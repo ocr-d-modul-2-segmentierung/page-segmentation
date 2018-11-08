@@ -1,4 +1,3 @@
-import tensorflow as tf
 import lib.model as model
 import numpy as np
 from lib.dataset import DatasetLoader, label_to_colors
@@ -11,6 +10,9 @@ import json
 
 
 def main():
+    from lib.trainer import TrainSettings, Trainer
+    from lib.predictor import Predictor, PredictSettings
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--l_rate", type=float, default=1e-3)
     parser.add_argument("--l_rate_drop_factor", type=float, default=0.1)
@@ -19,10 +21,11 @@ def main():
                         help="Scale the data images so that the line height matches this value")
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--load", type=str, default=None)
-    parser.add_argument("--n_iter", type=int, default=300000)
-    parser.add_argument("--early_stopping_test_interval", type=int, default=1000)
+    parser.add_argument("--n_iter", type=int, default=500)
+    parser.add_argument("--early_stopping_test_interval", type=int, default=100)
     parser.add_argument("--early_stopping_max_keep", type=int, default=10)
     parser.add_argument("--early_stopping_max_l_rate_drops", type=int, default=3)
+    parser.add_argument("--early_stopping_on_accuracy", default=False, action="store_true")
     parser.add_argument("--prediction_dir", type=str)
     parser.add_argument("--split_file", type=str,
                         help="Load splits from a json file")
@@ -44,210 +47,40 @@ def main():
             args.test += d["test"]
             args.eval += d["eval"]
 
-
-    def mkdir(path):
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-
-    fixed_size = False
-    solver = "Adam"
-
-    b, h, w = 1, 2000, 1500
-    l_rate = tf.placeholder(tf.float32, None, "l_rate")
-    raw_binary_inputs = tf.placeholder(tf.uint8, (b, None, None), "binary_inputs")
-    raw_inputs = tf.placeholder(tf.uint8, (b, None, None), "inputs")
-    raw_masks = tf.placeholder(tf.uint8, (b, None, None), "masks")
-
-    if fixed_size:
-        inputs = tf.image.resize_image_with_crop_or_pad(tf.expand_dims(raw_inputs, [-1]), h, w)
-        binary_inputs = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(raw_binary_inputs, [-1]), h, w), axis=-1)
-        masks = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(raw_masks, [-1]), h, w), axis=-1)
-    else:
-        inputs = tf.expand_dims(raw_inputs, [-1])
-        binary_inputs = raw_binary_inputs
-        masks = raw_masks
-
-    inputs = tf.cast(inputs, tf.float32) / 255.0
-
-    batch_size = tf.shape(inputs)[0]
-
-    prediction, logits, probs = model.model(inputs, args.n_classes)
-    loss = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(
-        labels=tf.cast(masks, tf.int32),
-        logits=logits,
-        weights=binary_inputs * 0 + 1,
-    ))
-
-    if solver == "Adam":
-        optimizer = tf.train.AdamOptimizer(learning_rate=l_rate)
-    else:
-        optimizer = tf.train.MomentumOptimizer(learning_rate=l_rate, momentum=0.9)
-
-    gvs = optimizer.compute_gradients(loss)
-    grads = [grad for grad, _ in gvs]
-    global_norm = True
-    if global_norm:
-        grads, _ = tf.clip_by_global_norm(grads, clip_norm=1)
-    else:
-        grads = [tf.clip_by_value(grad, -0.1, 0.1) for grad in grads]
-
-    gvs = zip(grads, [var for _, var in gvs])
-    train_op = optimizer.apply_gradients(gvs, name="train_op")
-
-    equals = tf.equal(tf.cast(prediction, tf.uint8), masks)
-    accuracy = tf.reduce_mean(tf.cast(equals, tf.float32))
-
-    fgpa_correct = tf.reduce_sum(tf.cast(tf.reshape(tf.multiply(tf.cast(equals, tf.uint8), binary_inputs), (batch_size, -1)), tf.int32), axis=-1)
-    fgpa_total = tf.reduce_sum(tf.cast(tf.reshape(binary_inputs, (batch_size, -1)), tf.int32), axis=-1)
-
-    fgpa = tf.reduce_mean(tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32)))
-
-    print("Loading data")
     dataset_loader = DatasetLoader(args.target_line_height)
     train_data = dataset_loader.load_data_from_json(args.train, "train")
     test_data = dataset_loader.load_data_from_json(args.train, "test")
     eval_data = dataset_loader.load_data_from_json(args.eval, "eval")
 
-    if len(train_data) == 0 and args.n_iter > 0:
-        raise Exception("No training files specified. Maybe set n_iter=0")
+    settings = TrainSettings(
+        n_iter=args.n_iter,
+        n_classes=args.n_classes,
+        l_rate=args.l_rate,
+        train_data=train_data,
+        validation_data=test_data,
+        load=args.load,
+        display=args.display,
+        output=args.output,
+        early_stopping_test_interval=args.early_stopping_test_interval,
+        early_stopping_max_keep=args.early_stopping_max_keep,
+        early_stopping_on_accuracy=args.early_stopping_on_accuracy,
+        threads=8,
+    )
+    trainer = Trainer(settings)
+    trainer.train()
 
-    debug_plot = False
+    predict_settings = PredictSettings(
+        mode='test',
+        n_classes=settings.n_classes,
+    )
+    predictor = Predictor(predict_settings, trainer.test_net)
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    def compute_total(label, data):
+        print("Computing total error of {}".format(label))
+        total_a, total_fg = predictor.test(data)
+        print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
 
-        def compute_pgpa(data):
-            total_a, total_fg = 0, 0
-            for i, sample in tqdm.tqdm(enumerate(data), total=len(data)):
-                a, fg, pred = sess.run((accuracy, fgpa, prediction),
-                                       {raw_inputs: [sample["image"]], raw_masks: [sample["mask"]],
-                                        raw_binary_inputs: [sample["binary"]]})
-
-                total_a += a / len(data)
-                total_fg += fg / len(data)
-
-            return total_fg
-
-        if args.load:
-            all_var_names = [v for v in tf.global_variables()
-                             if "Momentum" not in v.name
-                             and "Adam" not in v.name and "beta1_power" not in v.name and "beta2_power" not in v.name]
-            print(all_var_names)
-            saver = tf.train.Saver(all_var_names)
-            saver.restore(sess, args.load)
-
-        saver = tf.train.Saver()
-
-        current_best_fgpa = 0
-        current_best_model_iter = 0
-        current_best_iters = 0
-        l_rate_drops = 0
-        avg_loss, avg_acc, avg_fgpa = 10, 0, 0
-        for step in range(args.n_iter):
-            # only bs one, cause images might have a different shape
-            samples = np.random.randint(0, len(train_data), 1).tolist()
-            train_binary, train_input, train_mask = \
-                zip(*[(t["binary"], t["image"], t["mask"]) for t in [train_data[s] for s in samples]])
-            _, l, a, fg = sess.run((train_op, loss, accuracy, fgpa),
-                               {raw_inputs: train_input, raw_masks: train_mask,
-                                raw_binary_inputs: train_binary,
-                                l_rate: args.l_rate,})
-            # m = max([np.abs(np.mean(g)) for g, _ in gs])
-            # print(m)
-            avg_loss = 0.99 * avg_loss + 0.01 * l
-            avg_acc = 0.99 * avg_acc + 0.01 * a
-            avg_fgpa = 0.99 * avg_fgpa + 0.01 * fg
-            if step % args.display == 0:
-                print("#%05d (%.5f): Acc=%.5f FgPA=%.5f" % (step, avg_loss, avg_acc, avg_fgpa))
-
-            if (step + 1) % args.early_stopping_test_interval == 0:
-                print("checking for early stopping")
-                test_fgpa = compute_pgpa(test_data)
-                if test_fgpa > current_best_fgpa:
-                    current_best_fgpa = test_fgpa
-                    current_best_model_iter = step + 1
-                    current_best_iters = 0
-                    print("New best model at iter {} with FgPA={}".format(current_best_model_iter, current_best_fgpa))
-
-                    print("Saving the model")
-                    saver.save(sess, args.output, global_step=current_best_model_iter)
-                else:
-                    current_best_iters += 1
-                    print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters, current_best_fgpa))
-                    print("{} learning rates drops to go.".format(args.early_stopping_max_l_rate_drops - l_rate_drops))
-
-                if current_best_iters >= args.early_stopping_max_keep:
-                    if l_rate_drops >= args.early_stopping_max_l_rate_drops:
-                        print('early stopping at %d' % (step + 1))
-                        break
-                    else:
-                        l_rate_drops += 1
-                        args.l_rate *= args.l_rate_drop_factor
-                        current_best_iters = 0
-                        print('dropping learning rate to {}'.format(args.l_rate))
-
-            if debug_plot:
-                if step % 10 != 0:
-                    continue
-                eq, p, lit = sess.run((equals, prediction, logits),
-                                   {raw_inputs: train_input, raw_masks: train_mask,
-                                    raw_binary_inputs: train_binary})
-                fix, ax = plt.subplots(3, 3)
-                ax[0, 0].imshow(train_binary[0], cmap="gray")
-                ax[1, 0].imshow(train_input[0], cmap="gray")
-                ax[2, 0].imshow(train_mask[0], vmin=0, vmax=2)
-                ax[1, 1].imshow(eq[0], cmap="gray")
-                ax[2, 1].imshow(p[0], vmin=0, vmax=2)
-                ax[0, 2].imshow(lit[0][:,:,0], vmin=0,vmax=1, cmap="gray")
-                ax[1, 2].imshow(lit[0][:,:,1], vmin=0,vmax=1, cmap="gray")
-                ax[2, 2].imshow(lit[0][:,:,2], vmin=0,vmax=1, cmap="gray")
-
-                plt.show()
-
-        print("Best model at iter {} with fgpa of {}".format(current_best_model_iter, current_best_fgpa))
-
-        if current_best_model_iter > 0:
-            print("Loading best model")
-            saver.restore(sess, args.output + "-%d" % current_best_model_iter)
-
-        def compute_total(label, data, output_dir=None):
-            print("Computing total error of {}".format(label))
-            if output_dir:
-                mkdir(os.path.join(output_dir, "overlay"))
-                mkdir(os.path.join(output_dir, "color"))
-                mkdir(os.path.join(output_dir, "inverted"))
-
-            total_a, total_fg = 0, 0
-            for i, sample in tqdm.tqdm(enumerate(data), total=len(data)):
-                a, fg, pred = sess.run((accuracy, fgpa, prediction),
-                                {raw_inputs: [sample["image"]], raw_masks: [sample["mask"]],
-                                 raw_binary_inputs: [sample["binary"]]})
-
-                total_a += a / len(data)
-                total_fg += fg / len(data)
-
-                if output_dir:
-                    filename = os.path.basename(sample["image_path"])
-                    color_mask = label_to_colors(pred[0])
-                    foreground = np.stack([(1 - sample["image"] / 255)] * 3, axis=-1)
-                    inv_binary = np.stack([(sample["binary"])] * 3, axis=-1)
-                    overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
-                    inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
-                    img_io.imsave(os.path.join(output_dir, "color", filename), color_mask)
-                    img_io.imsave(os.path.join(output_dir, "overlay", filename), overlay_mask)
-                    img_io.imsave(os.path.join(output_dir, "inverted", filename), inverted_overlay_mask)
-
-            print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
-
-        compute_total("Train", train_data)
-        compute_total("Test", test_data)
-
-        if len(eval_data) > 0 and args.prediction_dir:
-            compute_total("Eval", eval_data, output_dir=args.prediction_dir)
-
-        else:
-            compute_total("Eval", eval_data)
+    compute_total("Test", test_data)
 
 
 if __name__ == "__main__":

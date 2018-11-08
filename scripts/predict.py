@@ -1,13 +1,10 @@
 import argparse
 import os
 import glob
-from lib.dataset import DatasetLoader, label_to_colors
+from lib.dataset import DatasetLoader, SingleData, Dataset
 import tqdm
-import tensorflow as tf
-import numpy as np
-import skimage.io as img_io
-import scipy.misc as misc
 import json
+from lib.predictor import Predictor, PredictSettings
 
 
 def glob_all(filenames):
@@ -45,6 +42,8 @@ def main():
 
     mkdir(args.output)
 
+    from lib.network import Network
+
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
@@ -64,61 +63,33 @@ def main():
     dataset_loader = DatasetLoader(args.target_line_height, prediction=True)
     if args.char_height:
         data = dataset_loader.load_data(
-            [{"binary_path": b, "image_path": i, "line_height_px": args.char_height} for b, i in zip(binary_file_paths, image_file_paths)]
+            [SingleData(binary_path=b, image_path=i, line_height_px=args.char_height) for b, i in zip(binary_file_paths, image_file_paths)]
         )
     elif len(norm_file_paths) == 1:
         ch = json.load(open(norm_file_paths[0]))["char_height"]
         data = dataset_loader.load_data(
-            [{"binary_path": b, "image_path": i, "line_height_px": ch} for b, i in zip(binary_file_paths, image_file_paths)]
+            [SingleData(binary_path=b, image_path=i, line_height_px=ch) for b, i in zip(binary_file_paths, image_file_paths)]
         )
     else:
         if len(norm_file_paths) != len(image_file_paths):
             raise Exception("Number of norm files must be one or equals the number of image files")
 
         data = dataset_loader.load_data(
-            [{"binary_path": b, "image_path": i, "line_height_px": json.load(open(n))["char_height"]}
+            [SingleData(binary_path=b, image_path=i, line_height_px=json.load(open(n))["char_height"])
              for b, i, n in zip(binary_file_paths, image_file_paths, norm_file_paths)]
         )
 
-
     print("Creating net")
+    settings = PredictSettings(
+        mode='meta',
+        network=os.path.abspath(args.load),
+        output=args.output,
+    )
+    predictor = Predictor(settings)
 
-    graph = tf.Graph()
-    graph.as_default()
-
-    with tf.Session(graph=graph) as sess:
-        saver = tf.train.import_meta_graph(args.load + '.meta')
-        saver.restore(sess, args.load)
-        inputs = graph.get_tensor_by_name("inputs:0")
-        try:
-            prediction = graph.get_tensor_by_name("prediction:0")
-        except:
-            prediction = graph.get_tensor_by_name("ArgMax:0")
-
-        mkdir(os.path.join(args.output, "overlay"))
-        mkdir(os.path.join(args.output, "color"))
-        mkdir(os.path.join(args.output, "inverted"))
-
-        print("Starting prediction")
-        for i, sample in tqdm.tqdm(enumerate(data), total=len(data)):
-            pred, = sess.run((prediction, ),
-                                   {inputs: [sample["image"]]})
-
-            filename = os.path.basename(sample["image_path"])
-            color_mask = label_to_colors(pred[0])
-            foreground = np.stack([(1 - sample["image"] / 255.0)] * 3, axis=-1)
-            inv_binary = np.stack([(sample["binary"])] * 3, axis=-1)
-
-            if not args.keep_low_res:
-                color_mask = misc.imresize(color_mask, sample["original_shape"], interp="nearest")
-                foreground = misc.imresize(foreground, sample["original_shape"])
-                inv_binary = misc.imresize(inv_binary, sample["original_shape"], interp="nearest")
-
-            overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
-            inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
-            img_io.imsave(os.path.join(args.output, "color", filename), color_mask)
-            img_io.imsave(os.path.join(args.output, "overlay", filename), overlay_mask)
-            img_io.imsave(os.path.join(args.output, "inverted", filename), inverted_overlay_mask)
+    print("Starting prediction")
+    for i, (pred, data) in tqdm.tqdm(enumerate(predictor.predict(data))):
+        pass
 
 
 if __name__ == "__main__":

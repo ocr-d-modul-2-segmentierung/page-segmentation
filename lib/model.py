@@ -35,10 +35,8 @@ def model_FCN_skip(input, n_classes):
 
     # prediction
     logits = tf.layers.conv2d(deconv5, n_classes, (1, 1), (1, 1), name="logits")
-    probs = tf.nn.softmax(logits, -1, name="probabilities")
-    prediction = tf.argmax(logits, axis=-1, name="prediction")
 
-    return prediction, logits, probs
+    return logits
 
 
 def model_FCN(input, n_classes):
@@ -66,10 +64,8 @@ def model_FCN(input, n_classes):
     # prediction
     upscaled = tf.image.resize_images(deconv5, tf.shape(input)[1:3])
     logits = tf.layers.conv2d(upscaled, n_classes, (1, 1), (1, 1), name="logits")
-    probs = tf.nn.softmax(logits, -1, name="probabilities")
-    prediction = tf.argmax(logits, axis=-1, name="prediction")
 
-    return prediction, logits, probs
+    return logits
 
 
 def get_lstm_cell(num_hidden, reuse_variables=False):

@@ -7,6 +7,31 @@ import tqdm
 import skimage.transform as img_trans
 import json
 from random import shuffle
+from typing import NamedTuple, List, Tuple
+from dataclasses import dataclass
+
+
+@dataclass
+class SingleData:
+    image: np.ndarray = None
+    binary: np.ndarray = None
+    mask: np.ndarray = None
+    image_path: str = None
+    binary_path: str = None
+    mask_path: str = None
+    line_height_px: int = 1
+    original_shape: Tuple[int, int] = None
+
+
+@dataclass
+class Dataset:
+    data: List[SingleData]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __iter__(self):
+        return self.data.__iter__()
 
 
 def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", images_dir_="images", masks_dir_="masks",
@@ -72,36 +97,25 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
 
 
 def color_to_label(mask, marginalia_as_text=True):
-    colors = [
-        (0, 0, 0),
-        (255, 255, 255),
-        (255, 0, 0),
-        (0, 255, 0),
-        (0, 0, 255),
-        (255, 0, 255),
-        (255, 255, 0),
-        (128, 0, 0),
-        (0, 255, 255),
-        (128, 128, 0),
-    ]
-    labels = [
-        0,
-        0,
-        1,
-        2,
-        1,
-        1,
-        1 if marginalia_as_text else 3,
-        1,
-        1,
-        2,
+    color_label_pairs = [
+        ((0, 0, 0),           0),
+        ((255, 255, 255),     0),
+        ((255, 0, 0),         1),
+        ((0, 255, 0),         2),
+        ((0, 0, 255),         3),
+        ((255, 0, 255),       1),
+        ((255, 255, 0),       1 if marginalia_as_text else 3),
+        ((128, 0, 0),         1),
+        ((0, 255, 255),       1),
+        ((128, 128, 0),       3),  # headline
+        ((0, 128, 128),       2),  # drop capital
     ]
 
     out = np.zeros(mask.shape[0:2], dtype=np.int32)
     mask = mask.astype(np.uint32)
     mask = 256 * 256 * mask[:, :, 0] + 256 * mask[:, :, 1] + mask[:, :, 2]
 
-    for color, label in zip(colors, labels):
+    for color, label in color_label_pairs:
         color = 256 * 256 * color[0] + 256 * color[1] + color[2]
         out += (mask == color) * label
 
@@ -135,18 +149,18 @@ class DatasetLoader:
         self.target_line_height = target_line_height
         self.prediction = prediction
 
-    def load_images(self, dataset_file_entry):
-        scale = self.target_line_height / dataset_file_entry["line_height_px"]
+    def load_images(self, dataset_file_entry: SingleData) -> SingleData:
+        scale = self.target_line_height / dataset_file_entry.line_height_px
 
         # inverted grayscale (black background)
-        img = ndimage.imread(dataset_file_entry["image_path"], flatten=True)
+        img = ndimage.imread(dataset_file_entry.image_path, flatten=True)
         original_shape = img.shape
-        bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry["binary_path"], flatten=True), scale, interp="nearest") / 255
+        bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry.binary_path, flatten=True), scale, interp="nearest") / 255
         img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
 
         # color
         if not self.prediction:
-            mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry["mask_path"], flatten=False), bin.shape, interp="nearest"))
+            mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry.mask_path, flatten=False), bin.shape, interp="nearest"))
             mean = np.mean(mask)
             if not 0 <= mean < 3:
                 raise Exception("Invalid file at {}".format(dataset_file_entry))
@@ -186,24 +200,24 @@ class DatasetLoader:
         if not self.prediction:
             check(mask)
             assert(mask.shape == img.shape)
-            dataset_file_entry["mask"] = mask.astype(np.uint8)
+            dataset_file_entry.mask = mask.astype(np.uint8)
 
-        dataset_file_entry["binary"] = bin.astype(np.uint8)
-        dataset_file_entry["image"] = (img * 255).astype(np.uint8)
-        dataset_file_entry["original_shape"] = original_shape
+        dataset_file_entry.binary = bin.astype(np.uint8)
+        dataset_file_entry.image = (img * 255).astype(np.uint8)
+        dataset_file_entry.original_shape = original_shape
 
         return dataset_file_entry
 
-    def load_data(self, all_dataset_files):
+    def load_data(self, all_dataset_files) -> Dataset:
         with multiprocessing.Pool(processes=12, maxtasksperchild=100) as p:
             out = list(tqdm.tqdm(p.imap(self.load_images, all_dataset_files), total=len(all_dataset_files)))
 
-        return out
+        return Dataset(out)
 
-    def load_data_from_json(self, files, type):
+    def load_data_from_json(self, files, type) -> Dataset:
         all_files = []
         for f in files:
-            all_files += json.load(open(f, 'r'))[type]
+            all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
 
         print("Loading {} data of type {}".format(len(all_files), type))
         return self.load_data(all_files)
