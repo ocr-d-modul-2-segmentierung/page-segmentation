@@ -209,8 +209,8 @@ class Network:
 
         try:
             while True:
-                logits, acc, fgacc, idxs = self.session.run((self.logits, self.single_pa, self.single_fgpa, self.data_idx))
-                for l, a, fg, idx in zip(logits, acc, fgacc, idxs):
+                pred, acc, fgacc, idxs = self.session.run((self.prediction, self.single_pa, self.single_fgpa, self.data_idx))
+                for l, a, fg, idx in zip(pred, acc, fgacc, idxs):
                     yield l, a, fg, self._data.data[idx]
 
         except tf.errors.OutOfRangeError as e:
