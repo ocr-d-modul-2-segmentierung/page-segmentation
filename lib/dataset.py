@@ -7,7 +7,7 @@ import tqdm
 import skimage.transform as img_trans
 import json
 from random import shuffle
-from typing import NamedTuple, List, Tuple, Optional
+from typing import NamedTuple, List, Tuple, Optional, Any
 from dataclasses import dataclass
 
 
@@ -23,7 +23,7 @@ class SingleData:
     original_shape: Tuple[int, int] = None
     xpad: Optional[int] = 0
     ypad: Optional[int] = 0
-    user_data = None
+    user_data: Any = None
 
 
 @dataclass
