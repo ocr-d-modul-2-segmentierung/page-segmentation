@@ -7,22 +7,23 @@ import tqdm
 import skimage.transform as img_trans
 import json
 from random import shuffle
-from typing import NamedTuple, List, Tuple
+from typing import NamedTuple, List, Tuple, Optional
 from dataclasses import dataclass
 
 
 @dataclass
 class SingleData:
     image: np.ndarray = None
-    binary: np.ndarray = None
+    binary: Optional[np.ndarray] = None
     mask: np.ndarray = None
-    image_path: str = None
-    binary_path: str = None
-    mask_path: str = None
-    line_height_px: int = 1
+    image_path: Optional[str] = None
+    binary_path: Optional[str] = None
+    mask_path: Optional[str] = None
+    line_height_px: Optional[int] = 1
     original_shape: Tuple[int, int] = None
-    xpad = 0
-    ypad = 0
+    xpad: Optional[int] = 0
+    ypad: Optional[int] = 0
+    user_data = None
 
 
 @dataclass
