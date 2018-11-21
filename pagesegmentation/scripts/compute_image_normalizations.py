@@ -20,9 +20,9 @@ def computeCharHeight(file_name):
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, 4)
 
     possible_letter = [False] + [0.5 < (stats[i, cv2.CC_STAT_WIDTH] / stats[i, cv2.CC_STAT_HEIGHT]) < 2
-                                 and 10 < stats[i, cv2.CC_STAT_HEIGHT] < 60
-                                 and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
-                                 for i in range(1, len(stats))]
+                                and 10 < stats[i, cv2.CC_STAT_HEIGHT] < 60
+                                and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
+                                for i in range(1, len(stats))]
 
     for x in np.nditer(labels, op_flags=['readwrite']):
         x[...] = x * possible_letter[x]
