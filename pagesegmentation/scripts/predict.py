@@ -1,10 +1,10 @@
 import argparse
 import os
 import glob
-from lib.dataset import DatasetLoader, SingleData, Dataset
+from pagesegmentation.lib.dataset import DatasetLoader, SingleData, Dataset
 import tqdm
 import json
-from lib.predictor import Predictor, PredictSettings
+from pagesegmentation.lib.predictor import Predictor, PredictSettings
 
 
 def glob_all(filenames):

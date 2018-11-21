@@ -1,6 +1,6 @@
-import lib.model as model
+import pagesegmentation.lib.model as model
 import numpy as np
-from lib.dataset import DatasetLoader, label_to_colors
+from pagesegmentation.lib.dataset import DatasetLoader, label_to_colors
 import matplotlib.pyplot as plt
 import skimage.io as img_io
 import os
@@ -10,8 +10,8 @@ import json
 
 
 def main():
-    from lib.trainer import TrainSettings, Trainer
-    from lib.predictor import Predictor, PredictSettings
+    from pagesegmentation.lib.trainer import TrainSettings, Trainer
+    from pagesegmentation.lib.predictor import Predictor, PredictSettings
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--l_rate", type=float, default=1e-3)
