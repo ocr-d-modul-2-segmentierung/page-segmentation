@@ -1,5 +1,5 @@
 import argparse
-from lib.dataset import list_dataset
+from pagesegmentation.lib.dataset import list_dataset
 from random import shuffle, seed
 import json
 

@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.cudnn_rnn as cudnn_rnn
-from lib.md_lstm import *
+from .md_lstm import *
 
 
 def model(input, n_classes):
