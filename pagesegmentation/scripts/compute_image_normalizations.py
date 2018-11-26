@@ -57,6 +57,8 @@ def main():
     files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir)]
 
     # files = files[:10]
+    global inverse
+    inverse  = args.inverse
 
 
     with multiprocessing.Pool(processes=12) as p:

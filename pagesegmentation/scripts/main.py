@@ -4,22 +4,22 @@ import importlib
 
 commands = {
     'train': {
-        'script': 'scripts.train',
+        'script': 'pagesegmentation.scripts.train',
         'main': 'main',
         'help': 'Train the neural network. See more via "* train --help"'
         },
     'predict': {
-        'script': 'scripts.predict',
+        'script': 'pagesegmentation.scripts.predict',
         'main': 'main',
         'help': 'Predict a result with the neural network. See more via "* predict --help"'
         },
     'create-dataset-file': {
-        'script': 'scripts.create_dataset_file',
+        'script': 'pagesegmentation.scripts.create_dataset_file',
         'main': 'main',
         'help': 'Create a dataset file'
     },
     'compute-image-normalizations': {
-        'script': 'scripts.compute_image_normalizations',
+        'script': 'pagesegmentation.scripts.compute_image_normalizations',
         'main': 'main',
         'help': 'Compute image normalizations'
         },
