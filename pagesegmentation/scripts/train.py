@@ -1,10 +1,4 @@
-import pagesegmentation.lib.model as model
-import numpy as np
-from pagesegmentation.lib.dataset import DatasetLoader, label_to_colors
-import matplotlib.pyplot as plt
-import skimage.io as img_io
-import os
-import tqdm
+from pagesegmentation.lib.dataset import DatasetLoader
 import argparse
 import json
 

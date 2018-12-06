@@ -3,6 +3,7 @@ from pagesegmentation.lib.dataset import list_dataset
 from random import shuffle, seed
 import json
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=67452)
@@ -29,12 +30,12 @@ def main():
     seed(args.seed)
 
     data_files = list_dataset(args.dataset_path, args.char_height_of_n,
-                            binary_dir_=args.binary_dir,
-                            images_dir_=args.images_dir,
-                            masks_dir_=args.masks_dir,
-                            masks_postfix=args.masks_postfix,
-                            normalizations_dir=args.normalizations_dir,
-                            verify_filenames=args.verify_filenames)
+                              binary_dir_=args.binary_dir,
+                              images_dir_=args.images_dir,
+                              masks_dir_=args.masks_dir,
+                              masks_postfix=args.masks_postfix,
+                              normalizations_dir=args.normalizations_dir,
+                              verify_filenames=args.verify_filenames)
 
     if 0 < args.n_eval < 1:
         args.n_eval = args.n_eval * len(data_files)
@@ -63,14 +64,12 @@ def main():
             args.n_eval + args.n_train + args.n_test)
         )
 
-
     indices = list(range(len(data_files)))
     shuffle(indices)
 
     eval = [data_files[d] for d in indices[:args.n_eval]]
     train = [data_files[d] for d in indices[args.n_eval:args.n_eval + args.n_train]]
     test = [data_files[d] for d in indices[args.n_eval + args.n_train:args.n_eval + args.n_train + args.n_test]]
-
 
     content = json.dumps({
         "seed": args.seed,
@@ -84,6 +83,7 @@ def main():
         f.write(content)
 
         print("File written to {}".format(args.output_file))
+
 
 if __name__ == "__main__":
     main()

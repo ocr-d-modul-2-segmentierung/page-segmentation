@@ -13,7 +13,7 @@ setup(
     download_url='https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git',
     entry_points={
         'console_scripts': [
-            'page-segmentation=pagesegmentation.scripts.pagesegmentation:main',
+            'page-segmentation=pagesegmentation.scripts.main:main',
         ],
     },
     install_requires=open("requirements.txt").read().split(),
