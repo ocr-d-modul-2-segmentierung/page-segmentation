@@ -1,7 +1,26 @@
 from .dataset import Dataset
-from typing import NamedTuple, List
+from typing import NamedTuple
 from tqdm import tqdm
-import tensorflow as tf
+
+
+class TrainProgressCallback:
+    def __init__(self):
+        super().__init__()
+        self.total_iters = 0
+        self.early_stopping_iters = 0
+
+    def init(self, total_iters, early_stopping_iters):
+        self.total_iters = total_iters
+        self.early_stopping_iters = early_stopping_iters
+
+    def next_iteration(self, iter: int, loss: float, acc: float, fgpa: float):
+        pass
+
+    def next_best_model(self, best_iter: int, best_acc: float, best_iters: int):
+        pass
+
+    def early_stopping(self):
+        pass
 
 
 class TrainSettings(NamedTuple):
@@ -25,6 +44,7 @@ class Trainer:
 
         from .network import Network
         from .model import model
+        import tensorflow as tf
 
         self.graph = tf.Graph()
         self.session = tf.Session(graph=self.graph,
@@ -46,8 +66,10 @@ class Trainer:
         if len(settings.train_data) == 0 and settings.n_iter > 0:
             raise Exception("No training files specified. Maybe set n_iter=0")
 
-    def train(self):
+    def train(self, callback: TrainProgressCallback = None):
         settings = self.settings
+        callback = callback if callback is not None else TrainProgressCallback()
+        callback.init(settings.n_iter, settings.early_stopping_max_keep)
 
         def compute_pgpa(net, fg_not_a=not settings.early_stopping_on_accuracy):
             total_a, total_fg = 0, 0
@@ -73,6 +95,8 @@ class Trainer:
             avg_loss = 0.99 * avg_loss + 0.01 * l
             avg_acc = 0.99 * avg_acc + 0.01 * a
             avg_fgpa = 0.99 * avg_fgpa + 0.01 * fg
+
+            callback.next_iteration(step, avg_loss, avg_acc, avg_fgpa)
             if step % settings.display == 0:
                 print("#%05d (%.5f): Acc=%.5f FgPA=%.5f" % (step, avg_loss, avg_acc, avg_fgpa))
 
@@ -93,7 +117,10 @@ class Trainer:
                     current_best_iters += 1
                     print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters, current_best_fgpa))
 
+                callback.next_best_model(current_best_iters, current_best_fgpa, current_best_iters)
+
                 if current_best_iters >= settings.early_stopping_max_keep:
+                    callback.early_stopping()
                     print('early stopping at %d' % (step + 1))
                     break
 
