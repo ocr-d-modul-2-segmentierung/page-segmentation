@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--split_file", type=str,
                         help="Load splits from a json file")
     parser.add_argument("--train", type=str, nargs="*", default=[])
+    parser.add_argument("--checkpoint_iteration_delta", type=int, default=None)
     parser.add_argument("--test", type=str, nargs="*", default=[],
                         help="Data used for early stopping"
     )
@@ -58,6 +59,7 @@ def main():
         early_stopping_test_interval=args.early_stopping_test_interval,
         early_stopping_max_keep=args.early_stopping_max_keep,
         early_stopping_on_accuracy=args.early_stopping_on_accuracy,
+        checkpoint_iter_delta=args.checkpoint_iteration_delta,
         threads=8,
     )
     trainer = Trainer(settings)

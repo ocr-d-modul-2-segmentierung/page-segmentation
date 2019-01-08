@@ -36,6 +36,7 @@ class TrainSettings(NamedTuple):
     early_stopping_test_interval: int
     early_stopping_max_keep: int
     early_stopping_on_accuracy: bool
+    checkpoint_iter_delta: int
     threads: int
     data_augmentation: DataAugmenterBase = None
 
@@ -89,7 +90,13 @@ class Trainer:
         current_best_model_iter = 0
         current_best_iters = 0
         avg_loss, avg_acc, avg_fgpa = 10, 0, 0
+
+        cur_checkpoint = 0
         for step in range(settings.n_iter):
+            if not(settings.checkpoint_iter_delta == None):
+                cur_checkpoint = cur_checkpoint if step < cur_checkpoint else cur_checkpoint + settings.checkpoint_iter_delta
+            else:
+                cur_checkpoint = None
             l, a, fg = self.train_net.train_dataset()
 
             # m = max([np.abs(np.mean(g)) for g, _ in gs])
@@ -114,7 +121,7 @@ class Trainer:
                     print("Saving the model to {}".format(settings.output))
                     self.train_net.save_checkpoint(settings.output)
                     self.deploy_net.load_weights(settings.output, restore_only_trainable=True)
-                    self.deploy_net.save_checkpoint(settings.output)
+                    self.deploy_net.save_checkpoint(settings.output,checkpoint=cur_checkpoint)
                 else:
                     current_best_iters += 1
                     print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters, current_best_fgpa))

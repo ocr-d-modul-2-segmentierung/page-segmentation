@@ -186,10 +186,13 @@ class Network:
             # This will possible load a weight matrix with wrong shape, thus a codec resize is necessary
             saver.restore(self.session, filepath)
 
-    def save_checkpoint(self, output_file):
+    def save_checkpoint(self, output_file,checkpoint=None):
         with self.graph.as_default() as g:
             saver = tf.train.Saver()
-            saver.save(self.session, output_file)
+            if checkpoint == None:
+                saver.save(self.session, output_file)
+            else:
+                saver.save(self.session, output_file, global_step=checkpoint)
 
     def train_dataset(self):
         l, a, fg = self.session.run((self.loss, self.pixel_accuracy, self.foreground_pixel_accuracy))
