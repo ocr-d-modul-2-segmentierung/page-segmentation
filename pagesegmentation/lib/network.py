@@ -3,7 +3,7 @@ import numpy as np
 import sys
 from typing import List, Generator, Tuple
 
-from .data_augmenter import augment
+from .data_augmenter import DataAugmenterBase
 from .dataset import Dataset, SingleData
 
 
@@ -14,7 +14,7 @@ class Network:
                  session,
                  model_constructor,
                  n_classes,
-                 l_rate, reuse=False, has_binary=False, fixed_size=None,
+                 l_rate, reuse=False, has_binary=False, fixed_size=None, data_augmentation: DataAugmenterBase = None,
                  meta: str = ''):
         meta = meta[:-5] if meta.endswith(".meta") else meta
         self.type = type
@@ -22,6 +22,7 @@ class Network:
         self.graph = graph
         self.session = session
         self.has_binary = has_binary
+        self.data_augmentation = data_augmentation
         with self.graph.as_default():
             if type == "meta":
                 saver = tf.train.import_meta_graph(meta + '.meta')
@@ -122,15 +123,16 @@ class Network:
                     if b is None:
                         b = np.full(i.shape, 1, dtype=np.uint8)
 
-                    if self.type == 'train' and False:
-                        yield augment(b, i, m) + (data_idx, )
+                    if self.type == 'train' and self.data_augmentation:
+                        yield self.data_augmentation.apply(b, i, m) + (data_idx, )
                     else:
                         yield b, i, m, data_idx
 
             dataset = tf.data.Dataset.from_generator(gen, (tf.uint8, tf.uint8, tf.uint8, tf.int32), ([None, None], [None, None], [None, None], None))
             if self.type == "train":
                 dataset = dataset.repeat().shuffle(buffer_size, seed=10)
-                dataset.map(lambda b, i, m, idx: tf.py_func(augment, (b, i, m, idx), [tf.uint8, tf.uint8, tf.uint8, tf.int32]), 6)
+                # if self.data_augmentation and False:
+                #    dataset = dataset.map(lambda b, i, m, idx: tf.py_func(augment, (b, i, m, idx), [tf.uint8, tf.uint8, tf.uint8, tf.int32]), 6)
             else:
                 pass
 

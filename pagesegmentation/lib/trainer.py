@@ -1,6 +1,7 @@
 from .dataset import Dataset
 from typing import NamedTuple
 from tqdm import tqdm
+from pagesegmentation.lib.data_augmenter import DataAugmenterBase
 
 
 class TrainProgressCallback:
@@ -36,6 +37,7 @@ class TrainSettings(NamedTuple):
     early_stopping_max_keep: int
     early_stopping_on_accuracy: bool
     threads: int
+    data_augmentation: DataAugmenterBase = None
 
 
 class Trainer:
@@ -53,7 +55,7 @@ class Trainer:
                                       inter_op_parallelism_threads=settings.threads,
                                   ))
 
-        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=False)
+        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=False, data_augmentation=settings.data_augmentation)
         self.test_net = Network("test", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=True)
 
         self.deploy_graph = tf.Graph()
