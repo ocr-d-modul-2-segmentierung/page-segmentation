@@ -1,6 +1,7 @@
 from pagesegmentation.lib.dataset import DatasetLoader
 import argparse
 import json
+from os import path
 
 
 def main():
@@ -34,13 +35,17 @@ def main():
 
     args = parser.parse_args()
 
+    def relpaths(reldir, files):
+        return [x if x[0] == "/" else path.join(reldir, x) for x in files]
+
     # json file for splits
     if args.split_file:
         with open(args.split_file) as f:
             d = json.load(f)
-            args.train += d["train"]
-            args.test += d["test"]
-            args.eval += d["eval"]
+            reldir = path.dirname(args.split_file)
+            args.train += relpaths(reldir, d["train"])
+            args.test += relpaths(reldir, d["test"])
+            args.eval += relpaths(reldir, d["eval"])
 
     dataset_loader = DatasetLoader(args.target_line_height)
     train_data = dataset_loader.load_data_from_json(args.train, "train")
