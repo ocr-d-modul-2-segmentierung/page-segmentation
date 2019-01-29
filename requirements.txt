@@ -1,4 +1,3 @@
-tensorflow_gpu
 scipy
 scikit-image
 tqdm
