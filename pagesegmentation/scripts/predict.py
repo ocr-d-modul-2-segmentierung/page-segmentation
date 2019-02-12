@@ -42,9 +42,6 @@ def main():
 
     mkdir(args.output)
 
-    from lib.network import Network
-
-
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
     if args.norm:
