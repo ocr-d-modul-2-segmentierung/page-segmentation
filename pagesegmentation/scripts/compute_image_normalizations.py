@@ -6,14 +6,15 @@ import os
 import multiprocessing
 import tqdm
 import json
+from functools import partial
 
-def computeCharHeight(file_name):
+def computeCharHeight(file_name, inverse):
     if not os.path.exists(file_name):
         raise Exception("File does not exist at {}".format(file_name))
 
     img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
     ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    if args.inverse:
+    if inverse:
         img = cv2.subtract(255, img)
 
     # labeled, nr_objects = ndimage.label(img > 128)
@@ -59,7 +60,7 @@ def main():
 
 
     with multiprocessing.Pool(processes=12) as p:
-        char_heights = [v for v in tqdm.tqdm(p.imap(computeCharHeight, files), total=len(files))]
+        char_heights = [v for v in tqdm.tqdm(p.imap(partial(computeCharHeight, inverse=args.inverse), files), total=len(files))]
 
     if args.average_all:
         av_height = np.mean([c for c in char_heights if c])
