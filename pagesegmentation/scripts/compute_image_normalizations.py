@@ -1,14 +1,15 @@
-import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-import cv2
-import os
 import multiprocessing
-import tqdm
+
+import argparse
+import cv2
 import json
+import numpy as np
+import os
+import tqdm
 from functools import partial
 
-def computeCharHeight(file_name, inverse):
+
+def compute_char_height(file_name: str, inverse: bool):
     if not os.path.exists(file_name):
         raise Exception("File does not exist at {}".format(file_name))
 
@@ -21,9 +22,9 @@ def computeCharHeight(file_name, inverse):
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, 4)
 
     possible_letter = [False] + [0.5 < (stats[i, cv2.CC_STAT_WIDTH] / stats[i, cv2.CC_STAT_HEIGHT]) < 2
-                                and 10 < stats[i, cv2.CC_STAT_HEIGHT] < 60
-                                and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
-                                for i in range(1, len(stats))]
+                                 and 10 < stats[i, cv2.CC_STAT_HEIGHT] < 60
+                                 and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
+                                 for i in range(1, len(stats))]
 
     for x in np.nditer(labels, op_flags=['readwrite']):
         x[...] = x * possible_letter[x]
@@ -34,15 +35,16 @@ def computeCharHeight(file_name, inverse):
     try:
         mode = valid_letter_heights[int(len(valid_letter_heights) / 2)]
         return mode
-    except:
+    except IndexError:
         return None
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", type=str, required=True,
                         help="Image directory to process")
     parser.add_argument("--average_all", action="store_true", default=True,
-                        help="bla")
+                        help="Average height over all images")
     parser.add_argument("--cut_left", type=float, default=0.05)
     parser.add_argument("--cut_right", type=float, default=0.05)
     parser.add_argument("--inverse", action="store_false", default=True)
@@ -57,12 +59,11 @@ def main():
     files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir)]
 
     # files = files[:10]
-    global inverse
-    inverse  = args.inverse
-
 
     with multiprocessing.Pool(processes=12) as p:
-        char_heights = [v for v in tqdm.tqdm(p.imap(partial(computeCharHeight, inverse=args.inverse), files), total=len(files))]
+        char_heights = [v for v in
+                        tqdm.tqdm(p.imap(partial(compute_char_height, inverse=args.inverse), files), total=len(files))
+                        ]
 
     if args.average_all:
         av_height = np.mean([c for c in char_heights if c])
@@ -83,6 +84,7 @@ def main():
                 )
 
         print(file, height)
+
 
 if __name__ == '__main__':
     main()

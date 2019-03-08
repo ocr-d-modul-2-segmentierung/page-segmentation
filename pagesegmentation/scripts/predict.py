@@ -1,9 +1,10 @@
 import argparse
-import os
 import glob
-from pagesegmentation.lib.dataset import DatasetLoader, SingleData, Dataset
-import tqdm
 import json
+import os
+import tqdm
+
+from pagesegmentation.lib.dataset import DatasetLoader, SingleData
 from pagesegmentation.lib.predictor import Predictor, PredictSettings
 
 

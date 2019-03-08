@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Generator
+from typing import NamedTuple, Generator
 from .network import Network
 import tensorflow as tf
 from .model import model as default_model
@@ -80,7 +80,7 @@ class Predictor:
             filename = os.path.basename(data.image_path)
             color_mask = label_to_colors(pred)
             foreground = np.stack([(1 - data.image / 255)] * 3, axis=-1)
-            inv_binary = np.stack([(data.binary)] * 3, axis=-1)
+            inv_binary = np.stack([data.binary] * 3, axis=-1)
             overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
             inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
 

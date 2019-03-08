@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import sys
-from typing import List, Generator, Tuple
+from typing import Generator, Tuple
 
 from .data_augmenter import DataAugmenterBase
 from .dataset import Dataset, SingleData
@@ -185,7 +185,7 @@ class Network:
             self.session.run([self.data_initializer.initializer])
 
     def load_weights(self, filepath, restore_only_trainable=True):
-        with self.graph.as_default() as g:
+        with self.graph.as_default():
             # reload trainable variables only (e. g. omitting solver specific variables)
             if restore_only_trainable:
                 saver = tf.train.Saver(tf.trainable_variables())
@@ -197,9 +197,9 @@ class Network:
             saver.restore(self.session, filepath)
 
     def save_checkpoint(self, output_file,checkpoint=None):
-        with self.graph.as_default() as g:
+        with self.graph.as_default():
             saver = tf.train.Saver()
-            if checkpoint == None:
+            if checkpoint is None:
                 saver.save(self.session, output_file)
             else:
                 saver.save(self.session, output_file, global_step=checkpoint)

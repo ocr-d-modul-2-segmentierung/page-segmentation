@@ -107,7 +107,7 @@ class Trainer:
 
         cur_checkpoint = 0
         for step in range(settings.n_iter):
-            if not(settings.checkpoint_iter_delta == None):
+            if not(settings.checkpoint_iter_delta is None):
                 cur_checkpoint = cur_checkpoint if step < cur_checkpoint else cur_checkpoint + settings.checkpoint_iter_delta
             else:
                 cur_checkpoint = None

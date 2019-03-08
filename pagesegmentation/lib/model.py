@@ -1,13 +1,14 @@
 import tensorflow as tf
 import tensorflow.contrib.cudnn_rnn as cudnn_rnn
-from .md_lstm import *
+
+from .md_lstm import horizontal_standard_lstm
 
 
 def model(input, n_classes):
-    return model_FCN_skip(input, n_classes)
+    return model_fcn_skip(input, n_classes)
 
 
-def model_FCN_skip(input, n_classes):
+def model_fcn_skip(input, n_classes):
     # input = tf.image.resize_bilinear(input, size)
 
     # encoder
@@ -39,7 +40,7 @@ def model_FCN_skip(input, n_classes):
     return logits
 
 
-def model_FCN(input, n_classes):
+def model_fcn(input, n_classes):
     # input = tf.image.resize_bilinear(input, size)
 
     # encoder
