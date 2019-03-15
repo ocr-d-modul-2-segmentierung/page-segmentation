@@ -156,14 +156,16 @@ class DatasetLoader:
         scale = self.target_line_height / dataset_file_entry.line_height_px
 
         # inverted grayscale (black background)
-        img = ndimage.imread(dataset_file_entry.image_path, flatten=True)
+        img = dataset_file_entry.image if dataset_file_entry.image is not None else ndimage.imread(dataset_file_entry.image_path, flatten=True)
         original_shape = img.shape
-        bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry.binary_path, flatten=True), scale, interp="nearest") / 255
+        bin = dataset_file_entry.binary if dataset_file_entry.binary is not None else ndimage.imread(dataset_file_entry.binary, flatten=True)
+        bin = 1.0 - misc.imresize(bin, scale, interp="nearest") / 255
         img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
 
         # color
         if not self.prediction:
-            mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry.mask_path, flatten=False), bin.shape, interp="nearest"))
+            mask = dataset_file_entry.mask if dataset_file_entry.mask is not None else ndimage.imread(dataset_file_entry.mask_path, flatten=False)
+            mask = color_to_label(misc.imresize(mask, bin.shape, interp="nearest"))
             mean = np.mean(mask)
             if not 0 <= mean < 3:
                 raise Exception("Invalid file at {}".format(dataset_file_entry))
