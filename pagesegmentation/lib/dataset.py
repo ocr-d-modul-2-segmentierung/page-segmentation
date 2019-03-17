@@ -165,7 +165,9 @@ class DatasetLoader:
         # color
         if not self.prediction:
             mask = dataset_file_entry.mask if dataset_file_entry.mask is not None else ndimage.imread(dataset_file_entry.mask_path, flatten=False)
-            mask = color_to_label(misc.imresize(mask, bin.shape, interp="nearest"))
+            mask = misc.imresize(mask, bin.shape, interp='nearest')
+            if mask.ndim == 3:
+                mask = color_to_label(mask)
             mean = np.mean(mask)
             if not 0 <= mean < 3:
                 raise Exception("Invalid file at {}".format(dataset_file_entry))
