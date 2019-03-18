@@ -117,22 +117,25 @@ class Network:
 
     def create_dataset_inputs(self, batch_size=1, buffer_size=50):
         with tf.variable_scope("", reuse=False):
+            data_augmenter = self.data_augmentation
+
             def gen():
                 for data_idx, d in enumerate(self._data):
                     b, i, m = d.binary, d.image, d.mask
                     if b is None:
                         b = np.full(i.shape, 1, dtype=np.uint8)
 
-                    if self.type == 'train' and self.data_augmentation:
-                        yield self.data_augmentation.apply(b, i, m) + (data_idx, )
-                    else:
-                        yield b, i, m, data_idx
+                    yield b, i, m, data_idx
+
+            def data_augmentation(b, i, m, data_idx):
+                return b, i, m, data_idx
 
             dataset = tf.data.Dataset.from_generator(gen, (tf.uint8, tf.uint8, tf.uint8, tf.int32), ([None, None], [None, None], [None, None], None))
             if self.type == "train":
+                if data_augmenter:
+                    dataset = dataset.map(data_augmentation, 8)
+
                 dataset = dataset.repeat().shuffle(buffer_size, seed=10)
-                # if self.data_augmentation and False:
-                #    dataset = dataset.map(lambda b, i, m, idx: tf.py_func(augment, (b, i, m, idx), [tf.uint8, tf.uint8, tf.uint8, tf.int32]), 6)
             else:
                 pass
 
