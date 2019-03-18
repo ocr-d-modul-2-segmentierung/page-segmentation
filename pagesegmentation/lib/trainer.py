@@ -2,6 +2,10 @@ from .dataset import Dataset
 from typing import NamedTuple
 from tqdm import tqdm
 from pagesegmentation.lib.data_augmenter import DataAugmenterBase
+import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TrainProgressCallback:
@@ -39,6 +43,7 @@ class TrainSettings(NamedTuple):
     checkpoint_iter_delta: int
     threads: int
     data_augmentation: DataAugmenterBase = None
+    compute_baseline: bool = False
 
 
 class Trainer:
@@ -68,6 +73,15 @@ class Trainer:
 
         if len(settings.train_data) == 0 and settings.n_iter > 0:
             raise Exception("No training files specified. Maybe set n_iter=0")
+
+        if settings.compute_baseline:
+            def compute_label_percentage(label):
+                return np.sum([np.sum(d.mask == label) for d in settings.train_data]) / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data])
+
+            logging.info("Computing label percentage for {} files.".format(len(settings.train_data)))
+            label_percentage = [compute_label_percentage(l) for l in range(settings.n_classes)]
+            logging.info("Label percentage: {}".format(list(zip(range(settings.n_classes), label_percentage))))
+            logging.info("Baseline: {}".format(max(label_percentage)))
 
     def train(self, callback: TrainProgressCallback = None):
         settings = self.settings
