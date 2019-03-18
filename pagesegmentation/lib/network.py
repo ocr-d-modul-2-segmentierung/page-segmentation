@@ -128,12 +128,19 @@ class Network:
                     yield b, i, m, data_idx
 
             def data_augmentation(b, i, m, data_idx):
+                return data_augmenter.apply(b, i, m) + (data_idx, )
+
+            def set_data_shapes(b, i, m, data_idx):
+                b.set_shape([None, None])
+                i.set_shape([None, None])
+                m.set_shape([None, None])
                 return b, i, m, data_idx
 
             dataset = tf.data.Dataset.from_generator(gen, (tf.uint8, tf.uint8, tf.uint8, tf.int32), ([None, None], [None, None], [None, None], None))
             if self.type == "train":
                 if data_augmenter:
-                    dataset = dataset.map(data_augmentation, 8)
+                    dataset = dataset.map(lambda b, i, m, data_idx: tuple(tf.py_func(data_augmentation, (b, i, m, data_idx), (tf.uint8, tf.uint8, tf.uint8, tf.int32))), 8)
+                    dataset = dataset.map(set_data_shapes)
 
                 dataset = dataset.repeat().shuffle(buffer_size, seed=10)
             else:
