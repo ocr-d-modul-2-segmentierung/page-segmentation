@@ -3,9 +3,10 @@ import glob
 import json
 import os
 import tqdm
+from typing import Generator, Union, List
 
 from pagesegmentation.lib.dataset import DatasetLoader, SingleData
-from pagesegmentation.lib.predictor import Predictor, PredictSettings
+from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
 
 
 def glob_all(filenames):
@@ -47,48 +48,66 @@ def main():
     binary_file_paths = sorted(glob_all(args.binary))
     if args.norm:
         norm_file_paths = sorted(glob_all(args.norm))
-    else:norm_file_paths = []
+    else:
+        norm_file_paths = []
 
     if len(image_file_paths) != len(binary_file_paths):
         raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
 
     print("Loading {} files with character height {}".format(len(image_file_paths), args.char_height))
 
-    if not args.char_height  and len(norm_file_paths) == 0:
+    if not args.char_height and len(norm_file_paths) == 0:
         raise Exception("Either char height or norm files must be provided")
 
-
-    dataset_loader = DatasetLoader(args.target_line_height, prediction=True)
     if args.char_height:
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=args.char_height) for b, i in zip(binary_file_paths, image_file_paths)]
-        )
+        line_heights = [args.char_height] * len(image_file_paths)
     elif len(norm_file_paths) == 1:
-        ch = json.load(open(norm_file_paths[0]))["char_height"]
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=ch) for b, i in zip(binary_file_paths, image_file_paths)]
-        )
+        line_heights = [json.load(open(norm_file_paths[0]))["char_height"]] * len(image_file_paths)
     else:
         if len(norm_file_paths) != len(image_file_paths):
             raise Exception("Number of norm files must be one or equals the number of image files")
+        line_heights = [json.load(open(n))["char_height"] for n in norm_file_paths]
 
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=json.load(open(n))["char_height"])
-             for b, i, n in zip(binary_file_paths, image_file_paths, norm_file_paths)]
-        )
+    predictions = predict(args.output,
+                          binary_file_paths,
+                          image_file_paths,
+                          line_heights,
+                          target_line_height=args.target_line_height,
+                          model=args.load,
+                          high_res_output=not args.keep_low_res
+                          )
 
-    print("Creating net")
+    for i, pred in tqdm.tqdm(enumerate(predictions)):
+        pass
+
+
+def predict(output,
+            binary_file_paths: List[str],
+            image_file_paths: List[str],
+            line_heights: Union[List[int], int],
+            target_line_height: int,
+            model: str,
+            high_res_output: bool = True
+            ) -> Generator[Prediction, None, None]:
+    dataset_loader = DatasetLoader(target_line_height, prediction=True)
+
+    if type(line_heights) is int:
+        line_heights = [line_heights] * len(image_file_paths)
+
+    data = dataset_loader.load_data(
+        [SingleData(binary_path=b, image_path=i, line_height_px=n)
+         for b, i, n in zip(binary_file_paths, image_file_paths, line_heights)]
+    )
+
     settings = PredictSettings(
         mode='meta',
-        network=os.path.abspath(args.load),
-        output=args.output,
-        high_res_output=not args.keep_low_res
+        network=os.path.abspath(model),
+        output=output,
+        high_res_output=high_res_output
     )
     predictor = Predictor(settings)
 
-    print("Starting prediction")
-    for i, pred in tqdm.tqdm(enumerate(predictor.predict(data))):
-        pass
+    return predictor.predict(data)
 
 
 if __name__ == "__main__":

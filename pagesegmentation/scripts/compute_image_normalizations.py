@@ -39,43 +39,30 @@ def compute_char_height(file_name: str, inverse: bool):
         return None
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True,
-                        help="Image directory to process")
-    parser.add_argument("--average_all", action="store_true", default=True,
-                        help="Average height over all images")
-    parser.add_argument("--cut_left", type=float, default=0.05)
-    parser.add_argument("--cut_right", type=float, default=0.05)
-    parser.add_argument("--inverse", action="store_false", default=True)
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="The output dir for the info files")
+def compute_normalizations(input_dir, output_dir, inverse=True, average_all=True):
+    if not os.path.exists(input_dir):
+        raise Exception("Cannot open {}".format(input_dir))
 
-    args = parser.parse_args()
-
-    if not os.path.exists(args.input_dir):
-        raise Exception("Cannot open {}".format(args.input_dir))
-
-    files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir)]
+    files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
 
     # files = files[:10]
 
     with multiprocessing.Pool(processes=12) as p:
         char_heights = [v for v in
-                        tqdm.tqdm(p.imap(partial(compute_char_height, inverse=args.inverse), files), total=len(files))
+                        tqdm.tqdm(p.imap(partial(compute_char_height, inverse=inverse), files), total=len(files))
                         ]
 
-    if args.average_all:
+    if average_all:
         av_height = np.mean([c for c in char_heights if c])
         char_heights = [av_height] * len(char_heights)
 
-    if args.output_dir and not os.path.exists(args.output_dir):
-        os.mkdir(args.output_dir)
+    if output_dir and not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
     for file, height in zip(files, char_heights):
         filename, file_extension = os.path.splitext(os.path.basename(file))
-        if args.output_dir:
-            output_file = os.path.join(args.output_dir, filename + ".norm")
+        if output_dir:
+            output_file = os.path.join(output_dir, filename + ".norm")
             with open(output_file, 'w') as f:
                 json.dump(
                     {"file": file, "char_height": int(height)},
@@ -84,6 +71,20 @@ def main():
                 )
 
         print(file, height)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_dir", type=str, required=True,
+                        help="Image directory to process")
+    parser.add_argument("--output_dir", type=str, required=True,
+                        help="The output dir for the info files")
+    parser.add_argument("--average_all", action="store_true", default=True,
+                        help="Average height over all images")
+    parser.add_argument("--inverse", action="store_false", default=True)
+
+    args = parser.parse_args()
+    compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)
 
 
 if __name__ == '__main__':

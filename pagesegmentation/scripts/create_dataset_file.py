@@ -37,16 +37,15 @@ def main():
                               normalizations_dir=args.normalizations_dir,
                               verify_filenames=args.verify_filenames)
 
-    if 0 < args.n_eval < 1:
-        args.n_eval = args.n_eval * len(data_files)
-    if 0 < args.n_test < 1:
-        args.n_test = args.n_test * len(data_files)
-    if 0 < args.n_train < 1:
-        args.n_train = args.n_train * len(data_files)
+    def fraction_or_absolute(part, collection):
+        if 0 < part < 1:
+            return int(part * len(collection))
+        else:
+            return int(part)
 
-    args.n_eval = int(args.n_eval)
-    args.n_test = int(args.n_test)
-    args.n_train = int(args.n_train)
+    args.n_eval = fraction_or_absolute(args.n_eval, data_files)
+    args.n_test = fraction_or_absolute(args.n_test, data_files)
+    args.n_train = fraction_or_absolute(args.n_train, data_files)
 
     if sum([args.n_eval < 0, args.n_train < 0, args.n_test < 0]) > 1:
         raise Exception("Only one dataset may get all remaining files")

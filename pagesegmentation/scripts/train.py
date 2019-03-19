@@ -44,7 +44,7 @@ def main():
 
     dataset_loader = DatasetLoader(args.target_line_height)
     train_data = dataset_loader.load_data_from_json(args.train, "train")
-    test_data = dataset_loader.load_data_from_json(args.train, "test")
+    test_data = dataset_loader.load_data_from_json(args.test, "test")
     eval_data = dataset_loader.load_data_from_json(args.eval, "eval")
 
     settings = TrainSettings(
@@ -67,7 +67,7 @@ def main():
 
     predict_settings = PredictSettings(
         mode='test',
-        n_classes=settings.n_classes,
+        n_classes=args.n_classes,
     )
     predictor = Predictor(predict_settings, trainer.test_net)
 
