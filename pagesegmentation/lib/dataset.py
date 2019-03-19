@@ -160,7 +160,7 @@ class DatasetLoader:
         # inverted grayscale (black background)
         img = dataset_file_entry.image if dataset_file_entry.image is not None else ndimage.imread(dataset_file_entry.image_path, flatten=True)
         original_shape = img.shape
-        bin = dataset_file_entry.binary if dataset_file_entry.binary is not None else ndimage.imread(dataset_file_entry.binary, flatten=True)
+        bin = dataset_file_entry.binary if dataset_file_entry.binary is not None else ndimage.imread(dataset_file_entry.binary_path, flatten=True)
         bin = 1.0 - misc.imresize(bin, scale, interp="nearest") / 255
         img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
 

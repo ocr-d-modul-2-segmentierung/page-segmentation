@@ -1,6 +1,6 @@
 def calculate_padding(image, scaling_factor):
     def scale(i, f):
-        return f - (i % f) % f
+        return (f - i % f) % f
 
     x, y = image.shape
     px = scale(x, scaling_factor)
