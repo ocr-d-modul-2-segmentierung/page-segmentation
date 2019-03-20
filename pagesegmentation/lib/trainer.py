@@ -44,6 +44,7 @@ class TrainSettings(NamedTuple):
     threads: int
     data_augmentation: DataAugmenterBase = None
     compute_baseline: bool = False
+    foreground_masks: bool = False
 
 
 class Trainer:
@@ -61,12 +62,16 @@ class Trainer:
                                       inter_op_parallelism_threads=settings.threads,
                                   ))
 
-        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=False, data_augmentation=settings.data_augmentation)
-        self.test_net = Network("test", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate, reuse=True)
+        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate,
+                                 reuse=False, data_augmentation=settings.data_augmentation,
+                                 foreground_masks=settings.foreground_masks)
+        self.test_net = Network("test", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate,
+                                reuse=True)
 
         self.deploy_graph = tf.Graph()
         self.deploy_session = tf.Session(graph=self.deploy_graph)
-        self.deploy_net = Network("deploy", self.deploy_graph, self.deploy_session, model, settings.n_classes, l_rate=settings.l_rate)
+        self.deploy_net = Network("deploy", self.deploy_graph, self.deploy_session, model, settings.n_classes,
+                                  l_rate=settings.l_rate)
 
         self.train_net.set_data(settings.train_data)
         self.test_net.set_data(settings.validation_data)

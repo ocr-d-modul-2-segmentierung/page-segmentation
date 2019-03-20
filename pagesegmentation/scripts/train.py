@@ -32,6 +32,8 @@ def main():
     parser.add_argument("--eval", type=str, nargs="*", default=[])
     parser.add_argument("--display", type=int, default=100,
                         help="Display training progress each display iterations.")
+    parser.add_argument("--foreground_masks", default=False, action="store_true",
+                        help="keep only mask parts that are foreground in binary image")
 
     args = parser.parse_args()
 
@@ -66,6 +68,7 @@ def main():
         early_stopping_on_accuracy=args.early_stopping_on_accuracy,
         checkpoint_iter_delta=args.checkpoint_iteration_delta,
         threads=8,
+        foreground_masks=args.foreground_masks,
     )
     trainer = Trainer(settings)
     trainer.train()

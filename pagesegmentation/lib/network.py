@@ -9,13 +9,29 @@ from .dataset import Dataset, SingleData
 
 class Network:
     def __init__(self,
-                 type,
-                 graph,
-                 session,
+                 type: str,
+                 graph: tf.Graph,
+                 session: tf.Session,
                  model_constructor,
-                 n_classes,
-                 l_rate, reuse=False, has_binary=False, fixed_size=None, data_augmentation: DataAugmenterBase = None,
-                 meta: str = ''):
+                 n_classes: int,
+                 l_rate: float,
+                 reuse: bool = False, has_binary: bool = False, fixed_size: Tuple[int, int] = None,
+                 data_augmentation: DataAugmenterBase = None,
+                 meta: str = '', foreground_masks: bool = False):
+        """
+        :param type: network type, either "train", "test", "deploy" or "meta" (for loading from file)
+        :param graph: tensorflow graph
+        :param session: tensorflow session
+        :param model_constructor: function that takes the input layer and number of classes and creates the model
+        :param n_classes: number of classes
+        :param l_rate: learning rate
+        :param reuse: reuse tensorflow variable scope
+        :param has_binary:
+        :param fixed_size: resize images to given dimensions
+        :param data_augmentation: preprocessing to apply to data
+        :param meta: name of model to load (if type = meta)
+        :param foreground_masks: keep only mask parts that are foreground in binary image (training only)
+        """
         meta = meta[:-5] if meta.endswith(".meta") else meta
         self.type = type
         self._data: Dataset = Dataset([])
@@ -65,7 +81,7 @@ class Network:
                         self.single_pa, self.pixel_accuracy, self.single_fgpa, self.foreground_pixel_accuracy = \
                             self.create_errors(self.prediction, self.masks, self.binary_inputs)
 
-                        self.loss, self.train_op = self.create_solver(self.logits, self.binary_inputs, self.masks, l_rate)
+                        self.loss, self.train_op = self.create_solver(self.logits, self.binary_inputs, self.masks, l_rate, foreground_masks)
                     else:
                         self.pixel_accuracy = None
                         self.foreground_pixel_accuracy = None
@@ -77,7 +93,10 @@ class Network:
     def set_data(self, data: Dataset):
         self._data = data
 
-    def create_solver(self, logits, binary_inputs, masks, l_rate, solver="Adam"):
+    def create_solver(self, logits, binary_inputs, masks, l_rate, foreground_masks: bool, solver="Adam"):
+        if foreground_masks:
+            masks = masks * binary_inputs
+
         loss = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(
             labels=tf.cast(masks, tf.int32),
             logits=logits,
