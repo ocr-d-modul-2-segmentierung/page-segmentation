@@ -28,7 +28,8 @@ class MultiDimensionalLSTMCell(RNNCell):
     Note that state_is_tuple is always True.
     """
 
-    def __init__(self, num_units, forget_bias=0.0, activation=tf.nn.tanh):
+    def __init__(self, num_units, forget_bias=0.0, activation=tf.nn.tanh, **kwargs):
+        super().__init__(**kwargs)
         self._num_units = num_units
         self._forget_bias = forget_bias
         self._activation = activation

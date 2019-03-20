@@ -76,7 +76,8 @@ class Trainer:
 
         if settings.compute_baseline:
             def compute_label_percentage(label):
-                return np.sum([np.sum(d.mask == label) for d in settings.train_data]) / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data])
+                return np.sum([np.sum(d.mask == label) for d in settings.train_data]) \
+                       / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data])
 
             logging.info("Computing label percentage for {} files.".format(len(settings.train_data)))
             label_percentage = [compute_label_percentage(l) for l in range(settings.n_classes)]
@@ -107,7 +108,7 @@ class Trainer:
 
         cur_checkpoint = 0
         for step in range(settings.n_iter):
-            if not(settings.checkpoint_iter_delta is None):
+            if not (settings.checkpoint_iter_delta is None):
                 cur_checkpoint = cur_checkpoint if step < cur_checkpoint else cur_checkpoint + settings.checkpoint_iter_delta
             else:
                 cur_checkpoint = None
@@ -135,10 +136,11 @@ class Trainer:
                     print("Saving the model to {}".format(settings.output))
                     self.train_net.save_checkpoint(settings.output)
                     self.deploy_net.load_weights(settings.output, restore_only_trainable=True)
-                    self.deploy_net.save_checkpoint(settings.output,checkpoint=cur_checkpoint)
+                    self.deploy_net.save_checkpoint(settings.output, checkpoint=cur_checkpoint)
                 else:
                     current_best_iters += 1
-                    print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters, current_best_fgpa))
+                    print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters,
+                                                                                               current_best_fgpa))
 
                 callback.next_best_model(current_best_iters, current_best_fgpa, current_best_iters)
 
@@ -154,4 +156,3 @@ class Trainer:
         if current_best_iters > 0:
             # restore best model
             self.test_net.load_weights(settings.output, restore_only_trainable=True)
-

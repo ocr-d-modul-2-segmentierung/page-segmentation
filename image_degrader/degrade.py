@@ -187,7 +187,7 @@ def _make_fiber(l, a, stepsize=0.5):
     angles = np.add.accumulate(angles)
     coss = np.add.accumulate(np.cos(angles) * stepsize)
     sins = np.add.accumulate(np.sin(angles) * stepsize)
-    return np.array([coss, sins]).transpose(1, 0)
+    return np.array([coss, sins]).transpose([1, 0])
 
 
 # TODO Unused (externally)?

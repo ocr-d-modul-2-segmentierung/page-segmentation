@@ -77,6 +77,8 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
         bin = if_startswith(bin, base_names)
         img = if_startswith(img, base_names)
         m = if_startswith(m, base_names)
+    else:
+        base_names = None
 
     if not line_height_px:
         norm_dir = os.path.join(root_dir, normalizations_dir)
@@ -163,6 +165,7 @@ class DatasetLoader:
         bin = dataset_file_entry.binary if dataset_file_entry.binary is not None else ndimage.imread(dataset_file_entry.binary_path, flatten=True)
         bin = 1.0 - misc.imresize(bin, scale, interp="nearest") / 255
         img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
+        scaled_shape = img.shape
 
         f = 2 ** 3
         pad = calculate_padding(bin, f)
@@ -181,7 +184,7 @@ class DatasetLoader:
         # color
         if not self.prediction:
             mask = dataset_file_entry.mask if dataset_file_entry.mask is not None else ndimage.imread(dataset_file_entry.mask_path, flatten=False)
-            mask = misc.imresize(mask, bin.shape, interp='nearest')
+            mask = misc.imresize(mask, scaled_shape, interp='nearest')
             if mask.ndim == 3:
                 mask = color_to_label(mask)
             mean = np.mean(mask)
