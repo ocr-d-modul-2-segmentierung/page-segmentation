@@ -72,7 +72,7 @@ class DefaultAugmenter(DataAugmenterBase):
             if scale_x != 1 or scale_y != 1:
                 img = imresize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)), interp=interp)
 
-            pad = calculate_padding(image, 2 ** 3)
+            pad = calculate_padding(img, 2 ** 3)
             img = np.pad(img, pad, 'edge')
 
             return imrotate(img, angle, interp=interp)
