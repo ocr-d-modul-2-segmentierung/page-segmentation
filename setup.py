@@ -14,8 +14,8 @@ setup(
     entry_points={
         'console_scripts': [
             'page-segmentation=pagesegmentation.scripts.main:main',
-            'ocrd_compute_normalizations=pagesegmentation.scripts.compute_image_normalizations:main',
-            'ocrd_pixel_classifier=pagesegmentation.scripts.predict:main',
+            'ocrd-compute-normalizations=pagesegmentation.scripts.compute_image_normalizations:main',
+            'ocrd-pixel-classifier=pagesegmentation.scripts.predict:main',
         ],
     },
     install_requires=open("requirements.txt").read().split(),
