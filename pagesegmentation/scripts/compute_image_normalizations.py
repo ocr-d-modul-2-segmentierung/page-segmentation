@@ -53,8 +53,8 @@ def compute_normalizations(input_dir, output_dir, inverse=True, average_all=True
         av_height = np.mean([c for c in char_heights if c])
         char_heights = [av_height] * len(char_heights)
 
-    if output_dir and not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     for file, height in zip(files, char_heights):
         filename, file_extension = os.path.splitext(os.path.basename(file))

@@ -1,25 +1,10 @@
 import argparse
-import glob
 import os
 
 import tqdm
 
 from pagesegmentation.lib.dataset import DatasetLoader
 from pagesegmentation.lib.predictor import Predictor, PredictSettings
-
-
-def glob_all(filenames):
-    files = []
-    for f in filenames:
-        files += glob.glob(f)
-
-    return files
-
-
-def mkdir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -34,7 +19,7 @@ def main():
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
     args = parser.parse_args()
 
-    mkdir(args.output)
+    os.makedirs(args.output, exist_ok=True)
 
     dataset_loader = DatasetLoader(args.target_line_height, prediction=True)
     data = dataset_loader.load_data_from_json(args.eval, "eval")

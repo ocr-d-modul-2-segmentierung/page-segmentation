@@ -1,19 +1,16 @@
-from typing import NamedTuple, Generator
-from .network import Network
-import tensorflow as tf
-from .model import model as default_model
-from .dataset import Dataset, SingleData
-from tqdm import tqdm
-import skimage.io as img_io
-import numpy as np
 import os
-from dataclasses import dataclass
+from typing import NamedTuple, Generator
+
+import numpy as np
 import scipy.misc as misc
+import skimage.io as img_io
+import tensorflow as tf
+from dataclasses import dataclass
+from tqdm import tqdm
 
-
-def mkdir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+from .dataset import Dataset, SingleData
+from .model import model as default_model
+from .network import Network
 
 
 class Prediction(NamedTuple):
@@ -49,9 +46,9 @@ class Predictor:
 
         if settings.output:
             output_dir = settings.output
-            mkdir(os.path.join(output_dir, "overlay"))
-            mkdir(os.path.join(output_dir, "color"))
-            mkdir(os.path.join(output_dir, "inverted"))
+            os.makedirs(os.path.join(output_dir, "overlay"), exist_ok=True)
+            os.makedirs(os.path.join(output_dir, "color"), exist_ok=True)
+            os.makedirs(os.path.join(output_dir, "inverted"), exist_ok=True)
 
     def predict(self, dataset: Dataset) -> Generator[Prediction, None, None]:
         for data in dataset.data:

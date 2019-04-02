@@ -2,8 +2,9 @@ import argparse
 import glob
 import json
 import os
-import tqdm
 from typing import Generator, Union, List
+
+import tqdm
 
 from pagesegmentation.lib.dataset import DatasetLoader, SingleData
 from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
@@ -15,11 +16,6 @@ def glob_all(filenames):
         files += glob.glob(f)
 
     return files
-
-
-def mkdir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
 
 
 def main():
@@ -42,7 +38,7 @@ def main():
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
     args = parser.parse_args()
 
-    mkdir(args.output)
+    os.makedirs(args.output, exist_ok=True)
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
