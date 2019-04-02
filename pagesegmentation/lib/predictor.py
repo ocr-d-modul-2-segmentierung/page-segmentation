@@ -70,14 +70,21 @@ class Predictor:
 
         return total_a, total_fg
 
-    def output_data(self, pred, data):
+    def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:
             assert(pred.shape[0] == 1)
             pred = pred[0]
 
         if self.settings.output:
             from .dataset import label_to_colors
-            filename = os.path.basename(data.image_path)
+            if data.output_path:
+                filename = data.output_path
+                dir = os.path.dirname(filename)
+                if dir:
+                    os.makedirs(dir, exist_ok=True)
+            else:
+                filename = os.path.basename(data.image_path)
+
             color_mask = label_to_colors(pred)
             foreground = np.stack([(1 - data.image / 255)] * 3, axis=-1)
             inv_binary = np.stack([data.binary] * 3, axis=-1)

@@ -25,6 +25,7 @@ class SingleData:
     original_shape: Tuple[int, int] = None
     xpad: Optional[int] = 0
     ypad: Optional[int] = 0
+    output_path: Optional[str] = None
     user_data: Any = None
 
 

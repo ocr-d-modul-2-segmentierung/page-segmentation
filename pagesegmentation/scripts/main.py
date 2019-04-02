@@ -14,6 +14,11 @@ commands = {
         'main': 'main',
         'help': 'Predict a result with the neural network. See more via "* predict --help"'
     },
+    'predict-json': {
+        'script': 'pagesegmentation.scripts.predict_json',
+        'main': 'main',
+        'help': 'Predict a result with the neural network, input via JSON. See more via "* predict --help"'
+    },
     'create-dataset-file': {
         'script': 'pagesegmentation.scripts.create_dataset_file',
         'main': 'main',
