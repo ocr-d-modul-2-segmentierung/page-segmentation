@@ -26,9 +26,6 @@ def compute_char_height(file_name: str, inverse: bool):
                                  and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
                                  for i in range(1, len(stats))]
 
-    for x in np.nditer(labels, op_flags=['readwrite']):
-        x[...] = x * possible_letter[x]
-
     valid_letter_heights = stats[possible_letter, cv2.CC_STAT_HEIGHT]
 
     valid_letter_heights.sort()
