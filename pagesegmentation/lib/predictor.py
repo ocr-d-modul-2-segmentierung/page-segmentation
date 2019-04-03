@@ -54,6 +54,11 @@ class Predictor:
     def predict(self, dataset: Dataset) -> Generator[Prediction, None, None]:
         for data in dataset.data:
             pred, prob = self.network.predict_single_data(data)
+
+            if self.settings.post_process:
+                for processor in self.settings.post_process:
+                    pred = processor(pred, data)
+
             self.output_data(pred, data)
             yield Prediction(pred, prob, data)
 
@@ -82,10 +87,6 @@ class Predictor:
                     os.makedirs(dir, exist_ok=True)
             else:
                 filename = os.path.basename(data.image_path)
-
-            if self.settings.post_process:
-                for processor in self.settings.post_process:
-                    pred = processor(pred, data)
 
             color_mask = label_to_colors(pred)
             foreground = np.stack([(1 - data.image / 255)] * 3, axis=-1)
