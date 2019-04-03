@@ -2,11 +2,13 @@ import argparse
 import glob
 import json
 import os
-from typing import Generator, Union, List
+import numpy as np
+from typing import Generator, List, Callable, Optional, Union
 
 import tqdm
 
 from pagesegmentation.lib.dataset import DatasetLoader, SingleData
+from pagesegmentation.lib.postprocess import vote_connected_component_class
 from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
 
 
@@ -36,6 +38,8 @@ def main():
                         help="directory name of the norms on which to train")
     parser.add_argument("--keep_low_res", action="store_true",
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
+    parser.add_argument("--cc_majority", action="store_true",
+                        help="classify all pixels of each connected component as most frequent class")
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -64,13 +68,18 @@ def main():
             raise Exception("Number of norm files must be one or equals the number of image files")
         line_heights = [json.load(open(n))["char_height"] for n in norm_file_paths]
 
+    post_processors = []
+    if args.cc_majority:
+        post_processors += [vote_connected_component_class]
+
     predictions = predict(args.output,
                           binary_file_paths,
                           image_file_paths,
                           line_heights,
                           target_line_height=args.target_line_height,
                           model=args.load,
-                          high_res_output=not args.keep_low_res
+                          high_res_output=not args.keep_low_res,
+                          post_processors=post_processors
                           )
 
     for i, pred in tqdm.tqdm(enumerate(predictions)):
