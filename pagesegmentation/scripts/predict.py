@@ -83,7 +83,8 @@ def predict(output,
             line_heights: Union[List[int], int],
             target_line_height: int,
             model: str,
-            high_res_output: bool = True
+            high_res_output: bool = True,
+            post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
             ) -> Generator[Prediction, None, None]:
     dataset_loader = DatasetLoader(target_line_height, prediction=True)
 
@@ -99,7 +100,8 @@ def predict(output,
         mode='meta',
         network=os.path.abspath(model),
         output=output,
-        high_res_output=high_res_output
+        high_res_output=high_res_output,
+        post_process=post_processors,
     )
     predictor = Predictor(settings)
 

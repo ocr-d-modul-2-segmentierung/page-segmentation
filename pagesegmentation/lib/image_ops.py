@@ -1,5 +1,10 @@
-def calculate_padding(image, scaling_factor):
-    def scale(i, f):
+from typing import Tuple
+
+import numpy as np
+
+
+def calculate_padding(image: np.ndarray, scaling_factor: int) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    def scale(i: int, f: int) -> int:
         return (f - i % f) % f
 
     x, y = image.shape

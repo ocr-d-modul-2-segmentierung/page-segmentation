@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, Generator
+from typing import NamedTuple, Generator, List, Callable, Optional
 
 import numpy as np
 import scipy.misc as misc
@@ -26,6 +26,7 @@ class PredictSettings:
     output: str = None
     mode: str = 'meta'  # meta, deploy or test
     high_res_output: bool = False
+    post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
 
 
 class Predictor:
@@ -81,6 +82,10 @@ class Predictor:
                     os.makedirs(dir, exist_ok=True)
             else:
                 filename = os.path.basename(data.image_path)
+
+            if self.settings.post_process:
+                for processor in self.settings.post_process:
+                    pred = processor(pred, data)
 
             color_mask = label_to_colors(pred)
             foreground = np.stack([(1 - data.image / 255)] * 3, axis=-1)
