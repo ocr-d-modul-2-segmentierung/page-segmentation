@@ -34,6 +34,8 @@ def main():
                         help="Display training progress each display iterations.")
     parser.add_argument("--foreground_masks", default=False, action="store_true",
                         help="keep only mask parts that are foreground in binary image")
+    parser.add_argument("--fgpa_per_class", default=False, action="store_true", help="Display per-class FgPA.")
+
 
     args = parser.parse_args()
 
@@ -81,8 +83,11 @@ def main():
 
     def compute_total(label, data):
         print("Computing total error of {}".format(label))
-        total_a, total_fg = predictor.test(data)
+        total_a, total_fg, total_fg_per_class = predictor.test(data, args.n_classes if args.fgpa_per_class else 0)
         print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
+        if args.fgpa_per_class:
+            for cls, cls_fgpa in enumerate(c):
+                print("class {} FgPA: {:.5}".format(cls, cls_fgpa))
 
     compute_total("Test", test_data)
 

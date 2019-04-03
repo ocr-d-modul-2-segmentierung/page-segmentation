@@ -21,7 +21,7 @@ class Prediction(NamedTuple):
 
 @dataclass
 class PredictSettings:
-    n_classes: int = -1 # if mode == meta this is not required
+    n_classes: int = -1  # if mode == meta this is not required
     network: str = None
     output: str = None
     mode: str = 'meta'  # meta, deploy or test
@@ -62,20 +62,29 @@ class Predictor:
             self.output_data(pred, data)
             yield Prediction(pred, prob, data)
 
-    def test(self, dataset: Dataset):
+    def test(self, dataset: Dataset, n_classes: int = 0):
+        """
+        Run classifier on given dataset and evaluate
+        :param dataset: input data
+        :param n_classes: if nonzero: calculate FgPA per class for classes up to n_classes
+        :return: accuracy, FgPA, array with FgPA for class i at index i
+        """
         self.network.set_data(dataset)
         total_a, total_fg = 0, 0
+        total_fg_per_class = np.zeros(n_classes)
         for pred, a, fg, data in tqdm(self.network.test_dataset(), total=self.network.n_data()):
             total_a += a / self.network.n_data()
             total_fg += fg / self.network.n_data()
+            if n_classes > 0:
+                total_fg_per_class += fgpa_per_class(pred, data.mask, data.binary, n_classes) / self.network.n_data()
 
             self.output_data(pred, data)
 
-        return total_a, total_fg
+        return total_a, total_fg, total_fg_per_class
 
     def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:
-            assert(pred.shape[0] == 1)
+            assert (pred.shape[0] == 1)
             pred = pred[0]
 
         if self.settings.output:
