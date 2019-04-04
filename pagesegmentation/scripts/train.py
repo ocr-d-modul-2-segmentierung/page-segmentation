@@ -86,7 +86,7 @@ def main():
         total_a, total_fg, total_fg_per_class = predictor.test(data, args.n_classes if args.fgpa_per_class else 0)
         print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
         if args.fgpa_per_class:
-            for cls, cls_fgpa in enumerate(c):
+            for cls, cls_fgpa in enumerate(total_fg_per_class):
                 print("class {} FgPA: {:.5}".format(cls, cls_fgpa))
 
     compute_total("Test", test_data)

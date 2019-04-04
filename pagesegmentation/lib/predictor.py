@@ -8,6 +8,7 @@ import tensorflow as tf
 from dataclasses import dataclass
 from tqdm import tqdm
 
+from pagesegmentation.lib.image_ops import fgpa_per_class
 from .dataset import Dataset, SingleData
 from .model import model as default_model
 from .network import Network
