@@ -13,7 +13,7 @@ from pagesegmentation.lib.predictor import Predictor, PredictSettings, Predictio
 
 
 def glob_all(filenames):
-    return [glob.glob(f) for f in filenames]
+    return [g for f in filenames for g in glob.glob(f)]
 
 
 def main():
