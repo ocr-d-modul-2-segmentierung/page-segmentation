@@ -15,6 +15,20 @@ def calculate_padding(image: np.ndarray, scaling_factor: int) -> Tuple[Tuple[int
     return pad
 
 
+def fgpa(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray) -> np.array:
+    """
+    Calculate foreground pixel accuracy
+    :param pred: prediction
+    :param mask: expected result
+    :param bin: binarized image (1 is foreground)
+    :return overall fgpa for the given prediction
+    """
+    pfg = pred * bin
+    mfg = mask * bin
+    fg_count = np.count_nonzero(bin)
+    return np.count_nonzero(pfg != mfg) / fg_count
+
+
 def fgpa_per_class(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray, n_classes: int) -> np.array:
     """
     Calculate per-class foreground pixel accuracy
