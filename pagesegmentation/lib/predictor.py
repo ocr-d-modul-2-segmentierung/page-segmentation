@@ -8,7 +8,7 @@ import tensorflow as tf
 from dataclasses import dataclass
 from tqdm import tqdm
 
-from pagesegmentation.lib.image_ops import fgpa_per_class
+from pagesegmentation.lib.image_ops import fgoverlap_per_class
 from .dataset import Dataset, SingleData
 from .model import model as default_model
 from .network import Network
@@ -68,20 +68,26 @@ class Predictor:
         Run classifier on given dataset and evaluate
         :param dataset: input data
         :param n_classes: if nonzero: calculate FgPA per class for classes up to n_classes
-        :return: accuracy, FgPA, array with FgPA for class i at index i
+        :return: accuracy,
+                 FgPA,
+                 array with overlap for class i at index i,
+                 array of number of images with class i at index i
         """
         self.network.set_data(dataset)
         total_a, total_fg = 0, 0
         total_fg_per_class = np.zeros(n_classes)
+        total_fg_classes_present = np.full(n_classes, self.network.n_data())
         for pred, a, fg, data in tqdm(self.network.test_dataset(), total=self.network.n_data()):
             total_a += a / self.network.n_data()
             total_fg += fg / self.network.n_data()
             if n_classes > 0:
-                total_fg_per_class += fgpa_per_class(pred, data.mask, data.binary, n_classes) / self.network.n_data()
+                overlap, _, _, _ = fgoverlap_per_class(pred, data.mask, data.binary, n_classes)
+                total_fg_per_class += np.nan_to_num(overlap)
+                total_fg_classes_present -= np.isnan(overlap)
 
             self.output_data(pred, data)
 
-        return total_a, total_fg, total_fg_per_class
+        return total_a, total_fg, total_fg_per_class / total_fg_classes_present, total_fg_classes_present
 
     def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:

@@ -1,9 +1,11 @@
-from typing import List
-
-from pagesegmentation.lib.dataset import DatasetLoader
 import argparse
 import json
 from os import path
+from typing import List
+
+import numpy as np
+
+from pagesegmentation.lib.dataset import DatasetLoader
 
 
 def main():
@@ -36,7 +38,8 @@ def main():
                         help="Display training progress each display iterations.")
     parser.add_argument("--foreground_masks", default=False, action="store_true",
                         help="keep only mask parts that are foreground in binary image")
-    parser.add_argument("--fgpa_per_class", default=False, action="store_true", help="Display per-class FgPA.")
+    parser.add_argument("--overlap_per_class", default=False, action="store_true",
+                        help="Display per-class overlaoverlap")
 
     args = parser.parse_args()
 
@@ -84,11 +87,12 @@ def main():
 
     def compute_total(label, data):
         print("Computing total error of {}".format(label))
-        total_a, total_fg, total_fg_per_class = predictor.test(data, args.n_classes if args.fgpa_per_class else 0)
+        total_a, total_fg, total_fgo_per_class = predictor.test(data, args.n_classes if args.fgpa_per_class else 0)
         print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
-        if args.fgpa_per_class:
-            for cls, cls_fgpa in enumerate(total_fg_per_class):
-                print("class {} FgPA: {:.5}".format(cls, cls_fgpa))
+        if args.overlap_per_class:
+            for cls, cls_overlap in enumerate(total_fgo_per_class):
+                if cls_overlap is not np.nan:
+                    print("class {} overlap: {:.5}".format(cls, cls_overlap))
 
     compute_total("Test", test_data)
     if len(eval_data) > 0:

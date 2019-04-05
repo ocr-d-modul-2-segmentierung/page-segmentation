@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 
@@ -26,24 +26,41 @@ def fgpa(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray) -> np.array:
     pfg = pred * bin
     mfg = mask * bin
     fg_count = np.count_nonzero(bin)
-    return np.count_nonzero(pfg != mfg) / fg_count
+    return (fg_count - np.count_nonzero(pfg != mfg)) / fg_count
 
 
-def fgpa_per_class(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray, n_classes: int) -> np.array:
+def fgoverlap_per_class(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray, n_classes: int) \
+        -> Tuple[List[float], List[int], List[int], List[int]]:
     """
-    Calculate per-class foreground pixel accuracy
+    Calculate per-class foreground overlap
     :param pred: prediction
     :param mask: expected result
     :param bin: binarized image (1 is foreground)
     :param n_classes: number of classes used
-    :return: array of size n_classes, with fgpa for class i at index i (including 0 for not classified)
+    :return: four arrays of size n_classes, with value for class i at index i (including 0 for not classified):
+             overlap, true positives, false positives, false negatices
     """
+    global i
     pfg = (pred + 1) * bin - 1
     mfg = (mask + 1) * bin - 1
-    fg_count = np.count_nonzero(bin)
 
-    def fgpa_single_class(i: int) -> float:
-        errors = pfg.size - np.count_nonzero((pfg == i) == (mfg == i))
-        return (fg_count - errors) / fg_count
+    def overlap_class(i: int) -> Tuple[float, int, int, int]:
+        actual, expected = (pfg == i).astype(np.uint8), (mfg == i).astype(np.uint8)
 
-    return np.fromfunction(np.vectorize(fgpa_single_class), [n_classes+1])
+        pixels_of_interest = actual + expected
+        n_interest = np.count_nonzero(pixels_of_interest)
+        if n_interest == 0:
+            # class not relevant, overlap undefined
+            return np.nan, 0, 0, 0
+
+        fp = np.count_nonzero(actual > expected)
+        fn = np.count_nonzero(expected > actual)
+
+        tp = np.count_nonzero(pixels_of_interest == 2)
+
+        assert n_interest == fp + fn + tp
+
+        return tp / (tp + fp + fn), tp, fp, fn
+
+    overlaps, tps, fps, fns = map(list, zip(*[overlap_class(i) for i in range(n_classes + 1)]))
+    return overlaps, tps, fps, fns
