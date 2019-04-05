@@ -1,3 +1,5 @@
+from typing import List
+
 from pagesegmentation.lib.dataset import DatasetLoader
 import argparse
 import json
@@ -28,7 +30,7 @@ def main():
     parser.add_argument("--checkpoint_iteration_delta", type=int, default=None)
     parser.add_argument("--test", type=str, nargs="*", default=[],
                         help="Data used for early stopping"
-    )
+                        )
     parser.add_argument("--eval", type=str, nargs="*", default=[])
     parser.add_argument("--display", type=int, default=100,
                         help="Display training progress each display iterations.")
@@ -36,11 +38,10 @@ def main():
                         help="keep only mask parts that are foreground in binary image")
     parser.add_argument("--fgpa_per_class", default=False, action="store_true", help="Display per-class FgPA.")
 
-
     args = parser.parse_args()
 
-    def relpaths(reldir, files):
-        return [x if x[0] == "/" else path.join(reldir, x) for x in files]
+    def relpaths(basedir: str, files: List[str]) -> List[str]:
+        return [x if x[0] == "/" else path.join(basedir, x) for x in files]
 
     # json file for splits
     if args.split_file:
@@ -90,6 +91,8 @@ def main():
                 print("class {} FgPA: {:.5}".format(cls, cls_fgpa))
 
     compute_total("Test", test_data)
+    if len(eval_data) > 0:
+        compute_total("Eval", eval_data)
 
 
 if __name__ == "__main__":

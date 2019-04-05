@@ -7,6 +7,7 @@ from pagesegmentation.lib.dataset import DatasetLoader
 from pagesegmentation.lib.postprocess import vote_connected_component_class
 from pagesegmentation.lib.predictor import Predictor, PredictSettings
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--load", type=str, required=True,
@@ -43,7 +44,7 @@ def main():
     predictor = Predictor(settings)
 
     print("Starting prediction")
-    for i, pred in tqdm.tqdm(enumerate(predictor.predict(data))):
+    for _, _ in tqdm.tqdm(enumerate(predictor.predict(data))):
         pass
 
 

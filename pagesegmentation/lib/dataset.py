@@ -160,10 +160,15 @@ class DatasetLoader:
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
         scale = self.target_line_height / dataset_file_entry.line_height_px
 
+        def load_if_needed(data: SingleData, attr: str, flatten: bool) -> np.ndarray:
+            file = getattr(data, attr)
+            return file if file is not None else ndimage.imread(getattr(data, attr + '_path'), flatten=flatten)
+
         # inverted grayscale (black background)
-        img = dataset_file_entry.image if dataset_file_entry.image is not None else ndimage.imread(dataset_file_entry.image_path, flatten=True)
+        img = load_if_needed(dataset_file_entry, 'image', flatten=True)
+
         original_shape = img.shape
-        bin = dataset_file_entry.binary if dataset_file_entry.binary is not None else ndimage.imread(dataset_file_entry.binary_path, flatten=True)
+        bin = load_if_needed(dataset_file_entry, 'binary', flatten=True)
         bin = 1.0 - misc.imresize(bin, scale, interp="nearest") / 255
         img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
         scaled_shape = img.shape
@@ -184,7 +189,7 @@ class DatasetLoader:
 
         # color
         if not self.prediction:
-            mask = dataset_file_entry.mask if dataset_file_entry.mask is not None else ndimage.imread(dataset_file_entry.mask_path, flatten=False)
+            mask = load_if_needed(dataset_file_entry, 'mask', flatten=False)
             mask = misc.imresize(mask, scaled_shape, interp='nearest')
             if mask.ndim == 3:
                 mask = color_to_label(mask)
@@ -220,6 +225,7 @@ class DatasetLoader:
         print("Loading {} data of type {}".format(len(all_files), type))
         return self.load_data(all_files)
 
+    # noinspection PyUnusedLocal,PyPep8Naming
     def load_test(self):
         dataset_root = "/scratch/Datensets_Bildverarbeitung/page_segmentation"
 

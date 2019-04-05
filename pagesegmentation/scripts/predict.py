@@ -13,11 +13,7 @@ from pagesegmentation.lib.predictor import Predictor, PredictSettings, Predictio
 
 
 def glob_all(filenames):
-    files = []
-    for f in filenames:
-        files += glob.glob(f)
-
-    return files
+    return [glob.glob(f) for f in filenames]
 
 
 def main():
@@ -46,10 +42,8 @@ def main():
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
-    if args.norm:
-        norm_file_paths = sorted(glob_all(args.norm))
-    else:
-        norm_file_paths = []
+
+    norm_file_paths = sorted(glob_all(args.norm)) if args.norm else []
 
     if len(image_file_paths) != len(binary_file_paths):
         raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
@@ -82,7 +76,7 @@ def main():
                           post_processors=post_processors
                           )
 
-    for i, pred in tqdm.tqdm(enumerate(predictions)):
+    for _, _ in tqdm.tqdm(enumerate(predictions)):
         pass
 
 

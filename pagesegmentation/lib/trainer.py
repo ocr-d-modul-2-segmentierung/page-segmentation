@@ -89,7 +89,7 @@ class Trainer:
             logging.info("Label percentage: {}".format(list(zip(range(settings.n_classes), label_percentage))))
             logging.info("Baseline: {}".format(max(label_percentage)))
 
-    def train(self, callback: TrainProgressCallback = None):
+    def train(self, callback: TrainProgressCallback = None) -> None:
         settings = self.settings
         callback = callback if callback is not None else TrainProgressCallback()
         callback.init(settings.n_iter, settings.early_stopping_max_keep)
@@ -114,7 +114,8 @@ class Trainer:
         cur_checkpoint = 0
         for step in range(settings.n_iter):
             if not (settings.checkpoint_iter_delta is None):
-                cur_checkpoint = cur_checkpoint if step < cur_checkpoint else cur_checkpoint + settings.checkpoint_iter_delta
+                cur_checkpoint = cur_checkpoint if step < cur_checkpoint \
+                    else cur_checkpoint + settings.checkpoint_iter_delta
             else:
                 cur_checkpoint = None
             l, a, fg = self.train_net.train_dataset()

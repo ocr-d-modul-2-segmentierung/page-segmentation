@@ -32,7 +32,7 @@ class DefaultAugmenter(DataAugmenterBase):
             angle = 0
 
         if self.offset:
-            x_mi, x_ma, y_mi, y_ma = self.offset
+            # x_mi, x_ma, y_mi, y_ma = self.offset
             # offset_x = np.random.random() * (x_ma - x_mi) + x_mi
             # offset_y = np.random.random() * (y_ma - y_mi) + y_mi
             width = int((np.random.random() * 0.5 + 0.5) * image.shape[0])
@@ -55,6 +55,7 @@ class DefaultAugmenter(DataAugmenterBase):
         brightness = 0 if not self.brightness else np.random.random() * self.brightness
         contrast = 1 if not self.contrast else 2 ** (np.random.random() * self.contrast - self.contrast / 2)
 
+        # noinspection PyUnusedLocal
         def crop(img):
             return img[offset_x:offset_x + width, offset_y:offset_y + width]
 
