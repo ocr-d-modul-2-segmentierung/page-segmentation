@@ -40,7 +40,6 @@ def fgoverlap_per_class(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray, n_c
     :return: four arrays of size n_classes, with value for class i at index i (including 0 for not classified):
              overlap, true positives, false positives, false negatices
     """
-    global i
     pfg = (pred + 1) * bin - 1
     mfg = (mask + 1) * bin - 1
 

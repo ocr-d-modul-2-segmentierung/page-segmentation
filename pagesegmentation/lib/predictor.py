@@ -75,8 +75,8 @@ class Predictor:
         """
         self.network.set_data(dataset)
         total_a, total_fg = 0, 0
-        total_fg_per_class = np.zeros(n_classes)
-        total_fg_classes_present = np.full(n_classes, self.network.n_data())
+        total_fg_per_class = np.zeros(n_classes + 1)
+        total_fg_classes_present = np.full(n_classes + 1, self.network.n_data())
         for pred, a, fg, data in tqdm(self.network.test_dataset(), total=self.network.n_data()):
             total_a += a / self.network.n_data()
             total_fg += fg / self.network.n_data()

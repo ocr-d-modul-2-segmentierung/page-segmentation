@@ -87,7 +87,7 @@ def main():
 
     def compute_total(label, data):
         print("Computing total error of {}".format(label))
-        total_a, total_fg, total_fgo_per_class = predictor.test(data, args.n_classes if args.fgpa_per_class else 0)
+        total_a, total_fg, total_fgo_per_class, _ = predictor.test(data, args.n_classes if args.overlap_per_class else 0)
         print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
         if args.overlap_per_class:
             for cls, cls_overlap in enumerate(total_fgo_per_class):
