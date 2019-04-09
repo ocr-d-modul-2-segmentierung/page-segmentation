@@ -99,8 +99,11 @@ class Predictor:
             if data.output_path:
                 filename = data.output_path
                 dir = os.path.dirname(filename)
-                if dir:
+                if os.path.isabs(dir):
                     os.makedirs(dir, exist_ok=True)
+                elif dir:
+                    for category in ["color", "overlay", "inverted"]:
+                        os.makedirs(os.path.join(self.settings.output, category, dir), exist_ok=True)
             else:
                 filename = os.path.basename(data.image_path)
 
