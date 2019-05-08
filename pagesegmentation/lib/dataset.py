@@ -7,7 +7,7 @@ import tqdm
 from dataclasses import dataclass
 from random import shuffle
 from typing import List, Tuple, Optional, Any
-from skimage.transform import resize
+from skimage.transform import resize, rescale
 from imageio import imread
 
 from pagesegmentation.lib.image_ops import calculate_padding
@@ -169,7 +169,7 @@ class DatasetLoader:
 
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
-        bin = 1.0 - resize(bin, (np.asarray(bin.shape) * scale).astype(int), order=0) / 255
+        bin = 1.0 - rescale(bin, scale, order=0) / 255
         img = 1.0 - resize(img, bin.shape, order=3) / 255
         scaled_shape = img.shape
 
