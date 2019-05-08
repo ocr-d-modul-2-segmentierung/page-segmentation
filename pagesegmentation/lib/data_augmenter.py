@@ -1,6 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from scipy.misc import imrotate, imresize
+from skimage.transform import rotate, resize
 
 from pagesegmentation.lib.image_ops import calculate_padding
 
@@ -59,7 +59,7 @@ class DefaultAugmenter(DataAugmenterBase):
         def crop(img):
             return img[offset_x:offset_x + width, offset_y:offset_y + width]
 
-        def apply(img, interp, is_img=False):
+        def apply(img, order, is_img=False):
             # img = crop(img)
             if is_img:
                 img = brightness + contrast * img
@@ -71,14 +71,14 @@ class DefaultAugmenter(DataAugmenterBase):
                 img = img[:][::-1]
 
             if scale_x != 1 or scale_y != 1:
-                img = imresize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)), interp=interp)
+                img = resize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)), order=order)
 
             pad = calculate_padding(img, 2 ** 3)
             img = np.pad(img, pad, 'edge')
 
-            return imrotate(img, angle, interp=interp)
+            return rotate(img, angle, order=order)
 
         return \
-            apply(binary, interp='nearest'), \
-            apply(image, interp="bilinear", is_img=True), \
-            apply(mask, interp='nearest')
+            apply(binary, order=0), \
+            apply(image, order=1, is_img=True), \
+            apply(mask, order=0)

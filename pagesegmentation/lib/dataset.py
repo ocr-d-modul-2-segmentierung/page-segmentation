@@ -3,12 +3,12 @@ import multiprocessing
 import json
 import numpy as np
 import os
-import scipy.misc as misc
-import scipy.ndimage as ndimage
 import tqdm
 from dataclasses import dataclass
 from random import shuffle
 from typing import List, Tuple, Optional, Any
+from skimage.transform import resize
+from imageio import imread
 
 from pagesegmentation.lib.image_ops import calculate_padding
 
@@ -160,17 +160,17 @@ class DatasetLoader:
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
         scale = self.target_line_height / dataset_file_entry.line_height_px
 
-        def load_if_needed(data: SingleData, attr: str, flatten: bool) -> np.ndarray:
+        def load_if_needed(data: SingleData, attr: str, as_gray: bool) -> np.ndarray:
             file = getattr(data, attr)
-            return file if file is not None else ndimage.imread(getattr(data, attr + '_path'), flatten=flatten)
+            return file if file is not None else imread(getattr(data, attr + '_path'), as_gray=as_gray)
 
         # inverted grayscale (black background)
-        img = load_if_needed(dataset_file_entry, 'image', flatten=True)
+        img = load_if_needed(dataset_file_entry, 'image', as_gray=True)
 
         original_shape = img.shape
-        bin = load_if_needed(dataset_file_entry, 'binary', flatten=True)
-        bin = 1.0 - misc.imresize(bin, scale, interp="nearest") / 255
-        img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
+        bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
+        bin = 1.0 - resize(bin, (np.asarray(bin.shape) * scale).astype(int), order=0) / 255
+        img = 1.0 - resize(img, bin.shape, order=3) / 255
         scaled_shape = img.shape
 
         f = 2 ** 3
@@ -189,8 +189,8 @@ class DatasetLoader:
 
         # color
         if not self.prediction:
-            mask = load_if_needed(dataset_file_entry, 'mask', flatten=False)
-            mask = misc.imresize(mask, scaled_shape, interp='nearest')
+            mask = load_if_needed(dataset_file_entry, 'mask', as_gray=False)
+            mask = resize(mask, scaled_shape, order=0)
             if mask.ndim == 3:
                 mask = color_to_label(mask)
             mean = np.mean(mask)

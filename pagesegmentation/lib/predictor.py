@@ -2,8 +2,8 @@ import os
 from typing import NamedTuple, Generator, List, Callable, Optional
 
 import numpy as np
-import scipy.misc as misc
 import skimage.io as img_io
+from skimage.transform import resize
 import tensorflow as tf
 from dataclasses import dataclass
 from tqdm import tqdm
@@ -112,9 +112,9 @@ class Predictor:
             inv_binary = data.binary
 
             if self.settings.high_res_output:
-                color_mask = misc.imresize(color_mask[data.xpad:, data.ypad:], data.original_shape, interp="nearest")
-                foreground = misc.imresize(foreground[data.xpad:, data.ypad:], data.original_shape) / 255
-                inv_binary = misc.imresize(inv_binary[data.xpad:, data.ypad:], data.original_shape, interp="nearest")
+                color_mask = resize(color_mask[data.xpad:, data.ypad:], data.original_shape, order=0)
+                foreground = resize(foreground[data.xpad:, data.ypad:], data.original_shape) / 255
+                inv_binary = resize(inv_binary[data.xpad:, data.ypad:], data.original_shape, order=0)
 
             inv_binary = np.stack([inv_binary] * 3, axis=-1)
             overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
