@@ -156,6 +156,9 @@ class Network:
                     if b is None:
                         b = np.full(i.shape, 1, dtype=np.uint8)
 
+                    assert(b.dtype == np.uint8)
+                    assert(i.dtype == np.uint8)
+                    assert(m.dtype == np.uint8)
                     yield b, i, m, data_idx
 
             def data_augmentation(b, i, m, data_idx):
@@ -171,9 +174,10 @@ class Network:
             dataset = tf.data.Dataset.from_generator(gen, datatype, ([None, None], [None, None], [None, None], None))
             if self.type == "train":
                 if data_augmenter:
+                    # map must not one thread less then the inter threads
                     dataset = dataset.map(
                         lambda b, i, m, data_idx: tuple(tf.py_func(data_augmentation, (b, i, m, data_idx), datatype)),
-                        num_parallel_calls=8)
+                        num_parallel_calls=max(1, self.session._config.inter_op_parallelism_threads - 1))
                     dataset = dataset.map(set_data_shapes)
 
                 dataset = dataset.repeat().shuffle(buffer_size, seed=10)

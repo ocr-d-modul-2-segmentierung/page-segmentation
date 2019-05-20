@@ -56,10 +56,12 @@ class Trainer:
         import tensorflow as tf
 
         self.graph = tf.Graph()
+        # session requires at least 3 inter threads to prevent a deadlock
+        # (see https://github.com/tensorflow/tensorflow/issues/10369)
         self.session = tf.Session(graph=self.graph,
                                   config=tf.ConfigProto(
                                       intra_op_parallelism_threads=settings.threads,
-                                      inter_op_parallelism_threads=settings.threads,
+                                      inter_op_parallelism_threads=max(3, settings.threads),
                                   ))
 
         self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate,

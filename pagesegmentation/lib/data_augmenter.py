@@ -71,12 +71,15 @@ class DefaultAugmenter(DataAugmenterBase):
                 img = img[:][::-1]
 
             if scale_x != 1 or scale_y != 1:
-                img = resize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)), order=order)
+                img = resize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)),
+                             order=order,
+                             preserve_range=True,
+                             anti_aliasing=False if order == 0 else True)
 
             pad = calculate_padding(img, 2 ** 3)
             img = np.pad(img, pad, 'edge')
 
-            return rotate(img, angle, order=order)
+            return rotate(img, angle, order=order, preserve_range=True).astype(np.uint8)
 
         return \
             apply(binary, order=0), \
