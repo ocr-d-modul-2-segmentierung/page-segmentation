@@ -103,6 +103,7 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             for b_p, i_p, m_p, l_h in zip(bin, img, m, line_height_px)]
 
 
+
 def color_to_label(mask, marginalia_as_text=True):
     color_label_pairs = [
         ((0, 0, 0),           0),
