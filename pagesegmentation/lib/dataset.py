@@ -1,14 +1,16 @@
-import os
-import numpy as np
-import scipy.ndimage as ndimage
-import scipy.misc as misc
 import multiprocessing
-import tqdm
-import skimage.transform as img_trans
+
 import json
-from random import shuffle
-from typing import NamedTuple, List, Tuple, Optional, Any
+import numpy as np
+import os
+import tqdm
 from dataclasses import dataclass
+from random import shuffle
+from typing import List, Tuple, Optional, Any
+from skimage.transform import resize, rescale
+from imageio import imread
+
+from pagesegmentation.lib.image_ops import calculate_padding
 
 
 @dataclass
@@ -23,6 +25,7 @@ class SingleData:
     original_shape: Tuple[int, int] = None
     xpad: Optional[int] = 0
     ypad: Optional[int] = 0
+    output_path: Optional[str] = None
     user_data: Any = None
 
 
@@ -40,15 +43,18 @@ class Dataset:
 def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", images_dir_="images", masks_dir_="masks",
                  masks_postfix="", normalizations_dir="normalizations",
                  verify_filenames=False):
-    def listdir(d, postfix="", not_postfix=False):
+    def listdir(dir, postfix="", not_postfix=False):
         if len(postfix) > 0 and not_postfix:
-            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if not f.endswith(postfix)]
+            return [os.path.join(dir, f) for f in sorted(os.listdir(dir)) if not f.endswith(postfix)]
         else:
-            return [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(postfix)]
+            return [os.path.join(dir, f) for f in sorted(os.listdir(dir)) if f.endswith(postfix)]
 
     def extract_char_height(file):
         with open(file, 'r') as f:
             return json.load(f)["char_height"]
+
+    def if_startswith(fn, sw):
+        return [b for b in fn if any([os.path.basename(b).startswith(s) for s in sw])]
 
     binary_dir = os.path.join(root_dir, binary_dir_)
     images = os.path.join(root_dir, images_dir_)
@@ -66,14 +72,14 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
                 fn = [f[:-len(postfix)] if f.endswith(postfix) else f for f in fn]
             return [os.path.splitext(os.path.basename(f))[0] for f in fn]
 
-        base_names = set(filenames(bin)).intersection(set(filenames(img))).intersection(set(filenames(m, masks_postfix)))
-
-        def if_startswith(fn, sw):
-            return [b for b in fn if any([os.path.basename(b).startswith(s) for s in sw])]
+        base_names = set(filenames(bin)).intersection(set(filenames(img))).intersection(
+            set(filenames(m, masks_postfix)))
 
         bin = if_startswith(bin, base_names)
         img = if_startswith(img, base_names)
         m = if_startswith(m, base_names)
+    else:
+        base_names = None
 
     if not line_height_px:
         norm_dir = os.path.join(root_dir, normalizations_dir)
@@ -84,10 +90,9 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
         if verify_filenames:
             line_height_px = if_startswith(line_height_px, base_names)
         line_height_px = list(map(extract_char_height, line_height_px))
-        assert(len(line_height_px) == len(m))
+        assert (len(line_height_px) == len(m))
     else:
         line_height_px = [line_height_px] * len(m)
-
 
     if len(bin) == len(img) and len(img) == len(m):
         pass
@@ -154,61 +159,54 @@ class DatasetLoader:
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
         scale = self.target_line_height / dataset_file_entry.line_height_px
 
+        def load_if_needed(data: SingleData, attr: str, as_gray: bool) -> np.ndarray:
+            file = getattr(data, attr)
+            return file if file is not None else imread(getattr(data, attr + '_path'), as_gray=as_gray)
+
         # inverted grayscale (black background)
-        img = ndimage.imread(dataset_file_entry.image_path, flatten=True)
+        img = load_if_needed(dataset_file_entry, 'image', as_gray=True)
+
         original_shape = img.shape
-        bin = 1.0 - misc.imresize(ndimage.imread(dataset_file_entry.binary_path, flatten=True), scale, interp="nearest") / 255
-        img = 1.0 - misc.imresize(img, bin.shape, interp="lanczos") / 255
-
-        # color
-        if not self.prediction:
-            mask = color_to_label(misc.imresize(ndimage.imread(dataset_file_entry.mask_path, flatten=False), bin.shape, interp="nearest"))
-            mean = np.mean(mask)
-            if not 0 <= mean < 3:
-                raise Exception("Invalid file at {}".format(dataset_file_entry))
-
-        x, y = bin.shape
+        bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
+        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False) / 255
+        img = 1.0 - resize(img, bin.shape, order=3) / 255
+        scaled_shape = img.shape
 
         f = 2 ** 3
-        tx = (((x // 2) // 2) // 2) * 8
-        ty = (((y // 2) // 2) // 2) * 8
-
-        if x % f != 0:
-            px = tx - x + f
-            x = x + px
-        else:
-            px = 0
-
-        if y % f != 0:
-            py = ty - y + f
-            y = y + py
-        else:
-            py = 0
-
-        pad = ((px, 0), (py, 0))
+        pad = calculate_padding(bin, f)
         img = np.pad(img, pad, 'edge')
         bin = np.pad(bin, pad, 'edge')
 
-        if not self.prediction:
-            mask = np.pad(mask, pad, 'edge')
-
         def check(i):
             if i.shape[0] % f != 0 or i.shape[1] % f != 0:
-                raise Exception("Padding not working. Output shape ({}x{}) should be divisible by {}. Dataset entry: {}".format(i.shape[0], i.shape[1], f, dataset_file_entry))
+                raise Exception(
+                    "Padding not working. Output shape ({}x{}) should be divisible by {}. Dataset entry: {}".format(
+                        i.shape[0], i.shape[1], f, dataset_file_entry))
 
         check(img)
         check(bin)
 
+        # color
         if not self.prediction:
+            mask = load_if_needed(dataset_file_entry, 'mask', as_gray=False)
+            mask = resize(mask, scaled_shape, order=0, anti_aliasing=False)
+            if mask.ndim == 3:
+                mask = color_to_label(mask)
+            mean = np.mean(mask)
+            if not 0 <= mean < 3:
+                raise Exception("Invalid file at {}".format(dataset_file_entry))
+
+            mask = np.pad(mask, pad, 'edge')
+
             check(mask)
-            assert(mask.shape == img.shape)
+            assert (mask.shape == img.shape)
             dataset_file_entry.mask = mask.astype(np.uint8)
 
         dataset_file_entry.binary = bin.astype(np.uint8)
         dataset_file_entry.image = (img * 255).astype(np.uint8)
         dataset_file_entry.original_shape = original_shape
-        dataset_file_entry.xpad = px
-        dataset_file_entry.ypad = py
+        dataset_file_entry.xpad = pad[0][0]
+        dataset_file_entry.ypad = pad[1][0]
 
         return dataset_file_entry
 
@@ -226,6 +224,7 @@ class DatasetLoader:
         print("Loading {} data of type {}".format(len(all_files), type))
         return self.load_data(all_files)
 
+    # noinspection PyUnusedLocal,PyPep8Naming
     def load_test(self):
         dataset_root = "/scratch/Datensets_Bildverarbeitung/page_segmentation"
 
@@ -258,10 +257,7 @@ class DatasetLoader:
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-
     loader = DatasetLoader(4)
     loader.load_test()
-
 
     working_dir = "/scratch/wick/datasets/page_segmentation/Prediction/FCN_tf/train_ocr-d_test_5066"

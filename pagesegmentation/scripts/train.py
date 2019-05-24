@@ -1,6 +1,11 @@
-from pagesegmentation.lib.dataset import DatasetLoader
 import argparse
 import json
+from os import path
+from typing import List
+
+import numpy as np
+
+from pagesegmentation.lib.dataset import DatasetLoader
 
 
 def main():
@@ -24,26 +29,35 @@ def main():
     parser.add_argument("--split_file", type=str,
                         help="Load splits from a json file")
     parser.add_argument("--train", type=str, nargs="*", default=[])
+    parser.add_argument("--checkpoint_iteration_delta", type=int, default=None)
     parser.add_argument("--test", type=str, nargs="*", default=[],
                         help="Data used for early stopping"
-    )
+                        )
     parser.add_argument("--eval", type=str, nargs="*", default=[])
     parser.add_argument("--display", type=int, default=100,
                         help="Display training progress each display iterations.")
+    parser.add_argument("--foreground_masks", default=False, action="store_true",
+                        help="keep only mask parts that are foreground in binary image")
+    parser.add_argument("--overlap_per_class", default=False, action="store_true",
+                        help="Display per-class overlaoverlap")
 
     args = parser.parse_args()
+
+    def relpaths(basedir: str, files: List[str]) -> List[str]:
+        return [x if x[0] == "/" else path.join(basedir, x) for x in files]
 
     # json file for splits
     if args.split_file:
         with open(args.split_file) as f:
             d = json.load(f)
-            args.train += d["train"]
-            args.test += d["test"]
-            args.eval += d["eval"]
+            reldir = path.dirname(args.split_file)
+            args.train += relpaths(reldir, d["train"])
+            args.test += relpaths(reldir, d["test"])
+            args.eval += relpaths(reldir, d["eval"])
 
     dataset_loader = DatasetLoader(args.target_line_height)
     train_data = dataset_loader.load_data_from_json(args.train, "train")
-    test_data = dataset_loader.load_data_from_json(args.train, "test")
+    test_data = dataset_loader.load_data_from_json(args.test, "test")
     eval_data = dataset_loader.load_data_from_json(args.eval, "eval")
 
     settings = TrainSettings(
@@ -58,23 +72,31 @@ def main():
         early_stopping_test_interval=args.early_stopping_test_interval,
         early_stopping_max_keep=args.early_stopping_max_keep,
         early_stopping_on_accuracy=args.early_stopping_on_accuracy,
+        checkpoint_iter_delta=args.checkpoint_iteration_delta,
         threads=8,
+        foreground_masks=args.foreground_masks,
     )
     trainer = Trainer(settings)
     trainer.train()
 
     predict_settings = PredictSettings(
         mode='test',
-        n_classes=settings.n_classes,
+        n_classes=args.n_classes,
     )
     predictor = Predictor(predict_settings, trainer.test_net)
 
     def compute_total(label, data):
         print("Computing total error of {}".format(label))
-        total_a, total_fg = predictor.test(data)
+        total_a, total_fg, total_fgo_per_class, _ = predictor.test(data, args.n_classes if args.overlap_per_class else 0)
         print("%s: Acc=%.5f FgPA=%.5f" % (label, total_a, total_fg))
+        if args.overlap_per_class:
+            for cls, cls_overlap in enumerate(total_fgo_per_class):
+                if cls_overlap is not np.nan:
+                    print("class {} overlap: {:.5}".format(cls, cls_overlap))
 
     compute_total("Test", test_data)
+    if len(eval_data) > 0:
+        compute_total("Eval", eval_data)
 
 
 if __name__ == "__main__":

@@ -28,7 +28,8 @@ class MultiDimensionalLSTMCell(RNNCell):
     Note that state_is_tuple is always True.
     """
 
-    def __init__(self, num_units, forget_bias=0.0, activation=tf.nn.tanh):
+    def __init__(self, num_units, forget_bias=0.0, activation=tf.nn.tanh, **kwargs):
+        super().__init__(**kwargs)
         self._num_units = num_units
         self._forget_bias = forget_bias
         self._activation = activation
@@ -91,42 +92,42 @@ def multi_dimensional_rnn_while_loop(rnn_size, input_data, sh, dims=None, scope_
         # Get the shape of the input (batch_size, x, y, channels)
         shape = input_data.get_shape().as_list()
         batch_size = shape[0]
-        X_dim = shape[1]
-        Y_dim = shape[2]
+        x_dim = shape[1]
+        y_dim = shape[2]
         channels = shape[3]
         # Window size
-        X_win = sh[0]
-        Y_win = sh[1]
+        x_win = sh[0]
+        y_win = sh[1]
         # Get the runtime batch size
         batch_size_runtime = tf.shape(input_data)[0]
 
         # If the input cannot be exactly sampled by the window, we patch it with zeros
-        if X_dim % X_win != 0:
+        if x_dim % x_win != 0:
             # Get offset size
-            offset = tf.zeros([batch_size_runtime, X_win - (X_dim % X_win), Y_dim, channels])
+            offset = tf.zeros([batch_size_runtime, x_win - (x_dim % x_win), y_dim, channels])
             # Concatenate X dimension
             input_data = tf.concat(axis=1, values=[input_data, offset])
             # Get new shape
             shape = input_data.get_shape().as_list()
             # Update shape value
-            X_dim = shape[1]
+            x_dim = shape[1]
 
         # The same but for Y axis
-        if Y_dim % Y_win != 0:
+        if y_dim % y_win != 0:
             # Get offset size
-            offset = tf.zeros([batch_size_runtime, X_dim, Y_win - (Y_dim % Y_win), channels])
+            offset = tf.zeros([batch_size_runtime, x_dim, y_win - (y_dim % y_win), channels])
             # Concatenate Y dimension
             input_data = tf.concat(axis=2, values=[input_data, offset])
             # Get new shape
             shape = input_data.get_shape().as_list()
             # Update shape value
-            Y_dim = shape[2]
+            y_dim = shape[2]
 
         # Get the steps to perform in X and Y axis
-        h, w = int(X_dim / X_win), int(Y_dim / Y_win)
+        h, w = int(x_dim / x_win), int(y_dim / y_win)
 
         # Get the number of features (total number of imput values per step)
-        features = Y_win * X_win * channels
+        features = y_win * x_win * channels
 
         # Reshape input data to a tensor containing the step indexes and features inputs
         # The batch size is inferred from the tensor size

@@ -1,23 +1,19 @@
 import argparse
-import os
 import glob
-from pagesegmentation.lib.dataset import DatasetLoader, SingleData, Dataset
-import tqdm
 import json
-from pagesegmentation.lib.predictor import Predictor, PredictSettings
+import os
+import numpy as np
+from typing import Generator, List, Callable, Optional, Union
+
+import tqdm
+
+from pagesegmentation.lib.dataset import DatasetLoader, SingleData
+from pagesegmentation.lib.postprocess import vote_connected_component_class
+from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
 
 
 def glob_all(filenames):
-    files = []
-    for f in filenames:
-        files += glob.glob(f)
-
-    return files
-
-
-def mkdir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+    return [g for f in filenames for g in glob.glob(f)]
 
 
 def main():
@@ -38,59 +34,81 @@ def main():
                         help="directory name of the norms on which to train")
     parser.add_argument("--keep_low_res", action="store_true",
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
+    parser.add_argument("--cc_majority", action="store_true",
+                        help="classify all pixels of each connected component as most frequent class")
     args = parser.parse_args()
 
-    mkdir(args.output)
-
-    from lib.network import Network
-
+    os.makedirs(args.output, exist_ok=True)
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
-    if args.norm:
-        norm_file_paths = sorted(glob_all(args.norm))
-    else:norm_file_paths = []
+
+    norm_file_paths = sorted(glob_all(args.norm)) if args.norm else []
 
     if len(image_file_paths) != len(binary_file_paths):
         raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
 
     print("Loading {} files with character height {}".format(len(image_file_paths), args.char_height))
 
-    if not args.char_height  and len(norm_file_paths) == 0:
+    if not args.char_height and len(norm_file_paths) == 0:
         raise Exception("Either char height or norm files must be provided")
 
-
-    dataset_loader = DatasetLoader(args.target_line_height, prediction=True)
     if args.char_height:
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=args.char_height) for b, i in zip(binary_file_paths, image_file_paths)]
-        )
+        line_heights = [args.char_height] * len(image_file_paths)
     elif len(norm_file_paths) == 1:
-        ch = json.load(open(norm_file_paths[0]))["char_height"]
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=ch) for b, i in zip(binary_file_paths, image_file_paths)]
-        )
+        line_heights = [json.load(open(norm_file_paths[0]))["char_height"]] * len(image_file_paths)
     else:
         if len(norm_file_paths) != len(image_file_paths):
             raise Exception("Number of norm files must be one or equals the number of image files")
+        line_heights = [json.load(open(n))["char_height"] for n in norm_file_paths]
 
-        data = dataset_loader.load_data(
-            [SingleData(binary_path=b, image_path=i, line_height_px=json.load(open(n))["char_height"])
-             for b, i, n in zip(binary_file_paths, image_file_paths, norm_file_paths)]
-        )
+    post_processors = []
+    if args.cc_majority:
+        post_processors += [vote_connected_component_class]
 
-    print("Creating net")
+    predictions = predict(args.output,
+                          binary_file_paths,
+                          image_file_paths,
+                          line_heights,
+                          target_line_height=args.target_line_height,
+                          model=args.load,
+                          high_res_output=not args.keep_low_res,
+                          post_processors=post_processors
+                          )
+
+    for _, _ in tqdm.tqdm(enumerate(predictions)):
+        pass
+
+
+def predict(output,
+            binary_file_paths: List[str],
+            image_file_paths: List[str],
+            line_heights: Union[List[int], int],
+            target_line_height: int,
+            model: str,
+            high_res_output: bool = True,
+            post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
+            ) -> Generator[Prediction, None, None]:
+    dataset_loader = DatasetLoader(target_line_height, prediction=True)
+
+    if type(line_heights) is int:
+        line_heights = [line_heights] * len(image_file_paths)
+
+    data = dataset_loader.load_data(
+        [SingleData(binary_path=b, image_path=i, line_height_px=n)
+         for b, i, n in zip(binary_file_paths, image_file_paths, line_heights)]
+    )
+
     settings = PredictSettings(
         mode='meta',
-        network=os.path.abspath(args.load),
-        output=args.output,
-        high_res_output=not args.keep_low_res
+        network=os.path.abspath(model),
+        output=output,
+        high_res_output=high_res_output,
+        post_process=post_processors,
     )
     predictor = Predictor(settings)
 
-    print("Starting prediction")
-    for i, pred in tqdm.tqdm(enumerate(predictor.predict(data))):
-        pass
+    return predictor.predict(data)
 
 
 if __name__ == "__main__":

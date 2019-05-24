@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
 import numpy as np
-from scipy.misc import imrotate, imresize
-from scipy.ndimage.interpolation import shift, rotate
+from abc import ABC, abstractmethod
+from skimage.transform import rotate, resize
+
+from pagesegmentation.lib.image_ops import calculate_padding
 
 
 class DataAugmenterBase(ABC):
@@ -31,7 +32,7 @@ class DefaultAugmenter(DataAugmenterBase):
             angle = 0
 
         if self.offset:
-            x_mi, x_ma, y_mi, y_ma = self.offset
+            # x_mi, x_ma, y_mi, y_ma = self.offset
             # offset_x = np.random.random() * (x_ma - x_mi) + x_mi
             # offset_y = np.random.random() * (y_ma - y_mi) + y_mi
             width = int((np.random.random() * 0.5 + 0.5) * image.shape[0])
@@ -54,10 +55,11 @@ class DefaultAugmenter(DataAugmenterBase):
         brightness = 0 if not self.brightness else np.random.random() * self.brightness
         contrast = 1 if not self.contrast else 2 ** (np.random.random() * self.contrast - self.contrast / 2)
 
+        # noinspection PyUnusedLocal
         def crop(img):
-            return img[offset_x:offset_x+width, offset_y:offset_y+width]
+            return img[offset_x:offset_x + width, offset_y:offset_y + width]
 
-        def apply(img, interp, is_img=False):
+        def apply(img, order, is_img=False):
             # img = crop(img)
             if is_img:
                 img = brightness + contrast * img
@@ -69,35 +71,17 @@ class DefaultAugmenter(DataAugmenterBase):
                 img = img[:][::-1]
 
             if scale_x != 1 or scale_y != 1:
-                img = imresize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)), interp=interp)
+                img = resize(img, (int(img.shape[0] * scale_x), int(img.shape[1] * scale_y)),
+                             order=order,
+                             preserve_range=True,
+                             anti_aliasing=False if order == 0 else True)
 
-            img = pad_to_power_shape(img)
+            pad = calculate_padding(img, 2 ** 3)
+            img = np.pad(img, pad, 'edge')
 
-            return imrotate(img, angle, interp=interp)
+            return rotate(img, angle, order=order, preserve_range=True).astype(np.uint8)
 
-        return apply(binary, interp='nearest'), apply(image, interp="bilinear", is_img=True), apply(mask, interp='nearest')
-
-
-def pad_to_power_shape(img):
-    x, y = img.shape
-
-    f = 2 ** 3
-    tx = (((x // 2) // 2) // 2) * 8
-    ty = (((y // 2) // 2) // 2) * 8
-
-    if x % f != 0:
-        px = tx - x + f
-        x = x + px
-    else:
-        px = 0
-
-    if y % f != 0:
-        py = ty - y + f
-        y = y + py
-    else:
-        py = 0
-
-    pad = ((px, 0), (py, 0))
-    img = np.pad(img, pad, 'edge')
-
-    return img
+        return \
+            apply(binary, order=0), \
+            apply(image, order=1, is_img=True), \
+            apply(mask, order=0)

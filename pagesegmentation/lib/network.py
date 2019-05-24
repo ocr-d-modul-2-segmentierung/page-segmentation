@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import sys
-from typing import List, Generator, Tuple
+from typing import Generator, Tuple
 
 from .data_augmenter import DataAugmenterBase
 from .dataset import Dataset, SingleData
@@ -9,13 +9,29 @@ from .dataset import Dataset, SingleData
 
 class Network:
     def __init__(self,
-                 type,
-                 graph,
-                 session,
+                 type: str,
+                 graph: tf.Graph,
+                 session: tf.Session,
                  model_constructor,
-                 n_classes,
-                 l_rate, reuse=False, has_binary=False, fixed_size=None, data_augmentation: DataAugmenterBase = None,
-                 meta: str = ''):
+                 n_classes: int,
+                 l_rate: float,
+                 reuse: bool = False, has_binary: bool = False, fixed_size: Tuple[int, int] = None,
+                 data_augmentation: DataAugmenterBase = None,
+                 meta: str = '', foreground_masks: bool = False):
+        """
+        :param type: network type, either "train", "test", "deploy" or "meta" (for loading from file)
+        :param graph: tensorflow graph
+        :param session: tensorflow session
+        :param model_constructor: function that takes the input layer and number of classes and creates the model
+        :param n_classes: number of classes
+        :param l_rate: learning rate
+        :param reuse: reuse tensorflow variable scope
+        :param has_binary:
+        :param fixed_size: resize images to given dimensions
+        :param data_augmentation: preprocessing to apply to data
+        :param meta: name of model to load (if type = meta)
+        :param foreground_masks: keep only mask parts that are foreground in binary image (training only)
+        """
         meta = meta[:-5] if meta.endswith(".meta") else meta
         self.type = type
         self._data: Dataset = Dataset([])
@@ -25,17 +41,10 @@ class Network:
         self.data_augmentation = data_augmentation
         with self.graph.as_default():
             if type == "meta":
-                saver = tf.train.import_meta_graph(meta + '.meta')
-                saver.restore(self.session, meta)
-                self.raw_binary_inputs = self.raw_masks = self.data_idx = self.data_initializer = None
-                self.raw_inputs = graph.get_tensor_by_name("network/inputs:0")
-                self.probs = graph.get_tensor_by_name("network/probabilities:0")
-                self.prediction = graph.get_tensor_by_name("network/prediction:0")
+                self._init_from_meta(graph, meta)
             else:
                 with tf.variable_scope("network", reuse=reuse):
-                    if type == "train":
-                        self.raw_binary_inputs, self.raw_inputs, self.raw_masks, self.data_idx, self.data_initializer = self.create_dataset_inputs()
-                    elif type == "test":
+                    if type == "train" or type == "test":
                         self.raw_binary_inputs, self.raw_inputs, self.raw_masks, self.data_idx, self.data_initializer = self.create_dataset_inputs()
                     elif type == "deploy":
                         self.raw_binary_inputs, self.raw_inputs, self.raw_masks = self.create_placeholders()
@@ -46,9 +55,13 @@ class Network:
 
                     if fixed_size:
                         h, w = fixed_size
-                        self.inputs = tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_inputs, [-1]), h, w)
-                        self.binary_inputs = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_binary_inputs, [-1]), h, w), axis=-1)
-                        self.masks = tf.squeeze(tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_masks, [-1]), h, w), axis=-1)
+                        self.inputs = tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_inputs, [-1]), h,
+                                                                             w)
+                        self.binary_inputs = tf.squeeze(
+                            tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_binary_inputs, [-1]), h, w),
+                            axis=-1)
+                        self.masks = tf.squeeze(
+                            tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_masks, [-1]), h, w), axis=-1)
                     else:
                         self.inputs = tf.expand_dims(self.raw_inputs, [-1])
                         self.binary_inputs = self.raw_binary_inputs
@@ -65,7 +78,8 @@ class Network:
                         self.single_pa, self.pixel_accuracy, self.single_fgpa, self.foreground_pixel_accuracy = \
                             self.create_errors(self.prediction, self.masks, self.binary_inputs)
 
-                        self.loss, self.train_op = self.create_solver(self.logits, self.binary_inputs, self.masks, l_rate)
+                        self.loss, self.train_op = self.create_solver(self.logits, self.binary_inputs, self.masks,
+                                                                      l_rate, foreground_masks)
                     else:
                         self.pixel_accuracy = None
                         self.foreground_pixel_accuracy = None
@@ -74,10 +88,22 @@ class Network:
 
         tf.reset_default_graph()
 
+    def _init_from_meta(self, graph, meta):
+        saver = tf.train.import_meta_graph(meta + '.meta')
+        saver.restore(self.session, meta)
+        self.raw_binary_inputs = self.raw_masks = self.data_idx = self.data_initializer = None
+        self.raw_inputs = graph.get_tensor_by_name("network/inputs:0")
+        self.probs = graph.get_tensor_by_name("network/probabilities:0")
+        self.prediction = graph.get_tensor_by_name("network/prediction:0")
+
     def set_data(self, data: Dataset):
         self._data = data
 
-    def create_solver(self, logits, binary_inputs, masks, l_rate, solver="Adam"):
+    @staticmethod
+    def create_solver(logits, binary_inputs, masks, l_rate, foreground_masks: bool, solver="Adam"):
+        if foreground_masks:
+            masks = masks * binary_inputs
+
         loss = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(
             labels=tf.cast(masks, tf.int32),
             logits=logits,
@@ -102,13 +128,18 @@ class Network:
 
         return loss, train_op
 
-    def create_errors(self, prediction, masks, binary_inputs, batch_size=1):
+    @staticmethod
+    def create_errors(prediction, masks, binary_inputs, batch_size=1):
         equals = tf.equal(tf.cast(prediction, tf.uint8), masks)
         single_accuracy = tf.reduce_mean(tf.cast(equals, tf.float32), axis=[1, 2])
         accuracy = tf.reduce_mean(single_accuracy)
 
-        fgpa_correct = tf.reduce_sum(tf.cast(tf.reshape(tf.multiply(tf.cast(equals, tf.uint8), binary_inputs), (batch_size, -1)), tf.int32), axis=-1)
-        fgpa_total = tf.reduce_sum(tf.cast(tf.reshape(binary_inputs, (batch_size, -1)), tf.int32), axis=-1)
+        def count_fg(img):
+            return tf.reduce_sum(tf.cast(tf.reshape(img, (batch_size, -1)), tf.int32), axis=-1)
+
+        fg_equals = tf.multiply(tf.cast(equals, tf.uint8), binary_inputs)
+        fgpa_correct = count_fg(fg_equals)
+        fgpa_total = count_fg(binary_inputs)
 
         single_fgpa = tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32))
         fgpa = tf.reduce_mean(single_fgpa)
@@ -117,22 +148,39 @@ class Network:
 
     def create_dataset_inputs(self, batch_size=1, buffer_size=50):
         with tf.variable_scope("", reuse=False):
+            data_augmenter = self.data_augmentation
+
             def gen():
                 for data_idx, d in enumerate(self._data):
                     b, i, m = d.binary, d.image, d.mask
                     if b is None:
                         b = np.full(i.shape, 1, dtype=np.uint8)
 
-                    if self.type == 'train' and self.data_augmentation:
-                        yield self.data_augmentation.apply(b, i, m) + (data_idx, )
-                    else:
-                        yield b, i, m, data_idx
+                    assert(b.dtype == np.uint8)
+                    assert(i.dtype == np.uint8)
+                    assert(m.dtype == np.uint8)
+                    yield b, i, m, data_idx
 
-            dataset = tf.data.Dataset.from_generator(gen, (tf.uint8, tf.uint8, tf.uint8, tf.int32), ([None, None], [None, None], [None, None], None))
+            def data_augmentation(b, i, m, data_idx):
+                return data_augmenter.apply(b, i, m) + (data_idx,)
+
+            def set_data_shapes(b, i, m, data_idx):
+                b.set_shape([None, None])
+                i.set_shape([None, None])
+                m.set_shape([None, None])
+                return b, i, m, data_idx
+
+            datatype = (tf.uint8, tf.uint8, tf.uint8, tf.int32)
+            dataset = tf.data.Dataset.from_generator(gen, datatype, ([None, None], [None, None], [None, None], None))
             if self.type == "train":
+                if data_augmenter:
+                    # map must not one thread less then the inter threads
+                    dataset = dataset.map(
+                        lambda b, i, m, data_idx: tuple(tf.py_func(data_augmentation, (b, i, m, data_idx), datatype)),
+                        num_parallel_calls=max(1, self.session._config.inter_op_parallelism_threads - 1))
+                    dataset = dataset.map(set_data_shapes)
+
                 dataset = dataset.repeat().shuffle(buffer_size, seed=10)
-                # if self.data_augmentation and False:
-                #    dataset = dataset.map(lambda b, i, m, idx: tf.py_func(augment, (b, i, m, idx), [tf.uint8, tf.uint8, tf.uint8, tf.int32]), 6)
             else:
                 pass
 
@@ -175,7 +223,7 @@ class Network:
             self.session.run([self.data_initializer.initializer])
 
     def load_weights(self, filepath, restore_only_trainable=True):
-        with self.graph.as_default() as g:
+        with self.graph.as_default():
             # reload trainable variables only (e. g. omitting solver specific variables)
             if restore_only_trainable:
                 saver = tf.train.Saver(tf.trainable_variables())
@@ -186,10 +234,13 @@ class Network:
             # This will possible load a weight matrix with wrong shape, thus a codec resize is necessary
             saver.restore(self.session, filepath)
 
-    def save_checkpoint(self, output_file):
-        with self.graph.as_default() as g:
+    def save_checkpoint(self, output_file, checkpoint=None):
+        with self.graph.as_default():
             saver = tf.train.Saver()
-            saver.save(self.session, output_file)
+            if checkpoint is None:
+                saver.save(self.session, output_file)
+            else:
+                saver.save(self.session, output_file, global_step=checkpoint)
 
     def train_dataset(self):
         l, a, fg = self.session.run((self.loss, self.pixel_accuracy, self.foreground_pixel_accuracy))
@@ -211,11 +262,12 @@ class Network:
 
         try:
             while True:
-                pred, acc, fgacc, idxs = self.session.run((self.prediction, self.single_pa, self.single_fgpa, self.data_idx))
+                pred, acc, fgacc, idxs = self.session.run(
+                    (self.prediction, self.single_pa, self.single_fgpa, self.data_idx))
                 for l, a, fg, idx in zip(pred, acc, fgacc, idxs):
                     yield l, a, fg, self._data.data[idx]
 
-        except tf.errors.OutOfRangeError as e:
+        except tf.errors.OutOfRangeError:
             pass
 
     def predict_single_data(self, data: SingleData):
