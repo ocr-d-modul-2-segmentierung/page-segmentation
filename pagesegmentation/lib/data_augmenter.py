@@ -2,8 +2,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 from skimage.transform import rotate, resize
 
-from pagesegmentation.lib.image_ops import calculate_padding
-
 
 class DataAugmenterBase(ABC):
     def __init__(self):
@@ -75,9 +73,6 @@ class DefaultAugmenter(DataAugmenterBase):
                              order=order,
                              preserve_range=True,
                              anti_aliasing=False if order == 0 else True)
-
-            pad = calculate_padding(img, 2 ** 3)
-            img = np.pad(img, pad, 'edge')
 
             return rotate(img, angle, order=order, preserve_range=True).astype(np.uint8)
 

@@ -112,9 +112,9 @@ class Predictor:
             inv_binary = data.binary
 
             if self.settings.high_res_output:
-                color_mask = resize(color_mask[data.xpad:, data.ypad:], data.original_shape, order=0)
-                foreground = resize(foreground[data.xpad:, data.ypad:], data.original_shape) / 255
-                inv_binary = resize(inv_binary[data.xpad:, data.ypad:], data.original_shape, order=0)
+                color_mask = resize(color_mask, data.original_shape, order=0)
+                foreground = resize(foreground, data.original_shape) / 255
+                inv_binary = resize(inv_binary, data.original_shape, order=0)
 
             inv_binary = np.stack([inv_binary] * 3, axis=-1)
             overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)

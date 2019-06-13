@@ -7,6 +7,52 @@ from .data_augmenter import DataAugmenterBase
 from .dataset import Dataset, SingleData
 
 
+def calculate_padding(input, scaling_factor: int = 8):
+    def scale(i: int, f: int) -> int:
+        return (f - i % f) % f
+
+    shape = tf.shape(input)
+    px = scale(tf.gather(shape, 1), scaling_factor)
+    py = scale(tf.gather(shape, 2), scaling_factor)
+
+    return px, py
+
+
+def pad(input, padding):
+    if input is None:
+        return None
+
+    three_dims = len(input.get_shape()) == 3
+    if three_dims:
+        input = tf.expand_dims(input, axis=-1)
+    px, py = padding
+    shape = tf.shape(input)
+    output = tf.image.pad_to_bounding_box(input, 0, 0, tf.gather(shape, 1) + px, tf.gather(shape, 2) + py)
+
+    if three_dims:
+        output = tf.squeeze(output, axis=-1)
+
+    return output
+
+
+def crop(input, padding):
+    if input is None:
+        return None
+
+    three_dims = len(input.get_shape()) == 3
+    if three_dims:
+        input = tf.expand_dims(input, axis=-1)
+
+    px, py = padding
+    shape = tf.shape(input)
+    output = tf.image.crop_to_bounding_box(input, 0, 0, tf.gather(shape, 1) - px, tf.gather(shape, 2) - py)
+
+    if three_dims:
+        output = tf.squeeze(output, axis=-1)
+
+    return output
+
+
 class Network:
     def __init__(self,
                  type: str,
@@ -62,10 +108,13 @@ class Network:
                             axis=-1)
                         self.masks = tf.squeeze(
                             tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_masks, [-1]), h, w), axis=-1)
+                        padding = None
                     else:
                         self.inputs = tf.expand_dims(self.raw_inputs, [-1])
-                        self.binary_inputs = self.raw_binary_inputs
-                        self.masks = self.raw_masks
+                        padding = calculate_padding(self.inputs)
+                        self.inputs = pad(self.inputs, padding)
+                        self.binary_inputs = pad(self.raw_binary_inputs, padding)
+                        self.masks = pad(self.raw_masks, padding)
 
                     self.inputs = tf.cast(self.inputs, tf.float32) / 255.0
 
@@ -73,6 +122,15 @@ class Network:
                     self.logits = tf.identity(self.logits, name="logits")
                     self.probs = tf.nn.softmax(self.logits, -1, name="probabilities")
                     self.prediction = tf.argmax(self.logits, axis=-1, name="prediction")
+
+                    if fixed_size:
+                        self.cropped_probs = tf.identity(self.probs, name="cropped_probabilities")
+                        self.cropped_prediction = tf.identity(self.prediction, name="cropped_prediction")
+                    else:
+                        self.cropped_probs = crop(self.probs, padding)
+                        self.cropped_prediction = crop(self.prediction, padding)
+                        self.cropped_probs = tf.identity(self.cropped_probs, name="cropped_probabilities")
+                        self.cropped_prediction = tf.identity(self.cropped_prediction, name="cropped_prediction")
 
                     if type == "train" or type == "test":
                         self.single_pa, self.pixel_accuracy, self.single_fgpa, self.foreground_pixel_accuracy = \
@@ -95,6 +153,8 @@ class Network:
         self.raw_inputs = graph.get_tensor_by_name("network/inputs:0")
         self.probs = graph.get_tensor_by_name("network/probabilities:0")
         self.prediction = graph.get_tensor_by_name("network/prediction:0")
+        self.cropped_probs = graph.get_tensor_by_name("network/cropped_probabilities:0")
+        self.cropped_prediction = graph.get_tensor_by_name("network/cropped_prediction:0")
 
     def set_data(self, data: Dataset):
         self._data = data
@@ -266,7 +326,7 @@ class Network:
             pass
 
     def predict_single_data(self, data: SingleData):
-        pred, prob = self.session.run((self.prediction, self.probs), {
+        pred, prob = self.session.run((self.cropped_prediction, self.cropped_probs), {
             self.raw_inputs: [data.image],
         })
         return pred[0], prob[0]

@@ -10,8 +10,6 @@ from typing import List, Tuple, Optional, Any
 from skimage.transform import resize, rescale
 from imageio import imread
 
-from pagesegmentation.lib.image_ops import calculate_padding
-
 
 @dataclass
 class SingleData:
@@ -23,8 +21,6 @@ class SingleData:
     mask_path: Optional[str] = None
     line_height_px: Optional[int] = 1
     original_shape: Tuple[int, int] = None
-    xpad: Optional[int] = 0
-    ypad: Optional[int] = 0
     output_path: Optional[str] = None
     user_data: Any = None
 
@@ -173,19 +169,6 @@ class DatasetLoader:
         img = 1.0 - resize(img, bin.shape, order=3, preserve_range=True) / 255
         scaled_shape = img.shape
 
-        f = 2 ** 3
-        pad = calculate_padding(bin, f)
-        img = np.pad(img, pad, 'edge')
-        bin = np.pad(bin, pad, 'edge')
-
-        def check(i):
-            if i.shape[0] % f != 0 or i.shape[1] % f != 0:
-                raise Exception(
-                    "Padding not working. Output shape ({}x{}) should be divisible by {}. Dataset entry: {}".format(
-                        i.shape[0], i.shape[1], f, dataset_file_entry))
-
-        check(img)
-        check(bin)
 
         # color
         if not self.prediction:
@@ -197,17 +180,12 @@ class DatasetLoader:
             if not 0 <= mean < 3:
                 raise Exception("Invalid file at {}".format(dataset_file_entry))
 
-            mask = np.pad(mask, pad, 'edge')
-
-            check(mask)
             assert (mask.shape == img.shape)
             dataset_file_entry.mask = mask.astype(np.uint8)
 
         dataset_file_entry.binary = bin.astype(np.uint8)
         dataset_file_entry.image = (img * 255).astype(np.uint8)
         dataset_file_entry.original_shape = original_shape
-        dataset_file_entry.xpad = pad[0][0]
-        dataset_file_entry.ypad = pad[1][0]
 
         return dataset_file_entry
 
