@@ -159,7 +159,6 @@ class Network:
                     assert(b.dtype == np.uint8)
                     assert(i.dtype == np.uint8)
                     assert(m.dtype == np.uint8)
-                    print(b.shape, i.shape, i.min(), i.max(), m.min(), m.max())
                     yield b, i, m, data_idx
 
             def data_augmentation(b, i, m, data_idx):
