@@ -159,6 +159,7 @@ class Network:
                     assert(b.dtype == np.uint8)
                     assert(i.dtype == np.uint8)
                     assert(m.dtype == np.uint8)
+                    print(b.shape, i.shape, i.min(), i.max(), m.min(), m.max())
                     yield b, i, m, data_idx
 
             def data_augmentation(b, i, m, data_idx):
@@ -243,14 +244,9 @@ class Network:
                 saver.save(self.session, output_file, global_step=checkpoint)
 
     def train_dataset(self):
-        l, a, fg = self.session.run((self.loss, self.pixel_accuracy, self.foreground_pixel_accuracy))
+        l, _, a, fg = self.session.run((self.loss, self.train_op, self.pixel_accuracy, self.foreground_pixel_accuracy))
 
-        if np.isfinite(l):
-            # only update gradients if finite loss
-            self.session.run(
-                [self.train_op]
-            )
-        else:
+        if not np.isfinite(l):
             print("WARNING: Infinite loss. Skipping batch.", file=sys.stderr)
 
         return l, a, fg

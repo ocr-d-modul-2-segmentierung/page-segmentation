@@ -169,8 +169,8 @@ class DatasetLoader:
 
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
-        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False) / 255
-        img = 1.0 - resize(img, bin.shape, order=3) / 255
+        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True) / 255
+        img = 1.0 - resize(img, bin.shape, order=3, preserve_range=True) / 255
         scaled_shape = img.shape
 
         f = 2 ** 3
@@ -190,7 +190,7 @@ class DatasetLoader:
         # color
         if not self.prediction:
             mask = load_if_needed(dataset_file_entry, 'mask', as_gray=False)
-            mask = resize(mask, scaled_shape, order=0, anti_aliasing=False)
+            mask = resize(mask, scaled_shape, order=0, anti_aliasing=False, preserve_range=True)
             if mask.ndim == 3:
                 mask = color_to_label(mask)
             mean = np.mean(mask)
