@@ -195,7 +195,7 @@ def rest_net_fcn(input: Tensors, n_classes:int):
 
     x = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(x)
 
-    model_k = tf.keras.models.Model(inputs=base_model.input, outputs=x)
+    model_k = tf.keras.models.Model(inputs=input, outputs=x)
 
     '''
     # allow only some layers to retrain
@@ -311,7 +311,7 @@ def model_fcn(input: Tensors, n_classes: int):
     deconv2 = tf.keras.layers.Conv2DTranspose(60, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(deconv1)
     deconv3 = tf.keras.layers.Conv2DTranspose(40, (5, 5), padding="same", activation=tf.nn.relu)(deconv2)
     deconv4 = tf.keras.layers.Conv2DTranspose(30, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(deconv3)
-    deconv5 = tf.keras.layers.Conv2DTranspose(deconv4, 20, (2, 2), padding="same", strides=(2, 2), activation=None)(deconv4)
+    deconv5 = tf.keras.layers.Conv2DTranspose(20, (2, 2), padding="same", strides=(2, 2), activation=None)(deconv4)
     deconv5 = tf.keras.layers.Lambda(crop)([deconv5, padding])
     # prediction
     #upscaled = tf.image.resize_images(deconv5, tf.shape(input)[1:3])
