@@ -4,13 +4,11 @@ from typing import NamedTuple, Generator, List, Callable, Optional
 import numpy as np
 import skimage.io as img_io
 from skimage.transform import resize
-import tensorflow as tf
 from dataclasses import dataclass
 from tqdm import tqdm
 
-from pagesegmentation.lib.image_ops import fgoverlap_per_class
 from .dataset import Dataset, SingleData
-from .model import model as default_model
+from .model import model_by_name
 from .network import Network
 
 
@@ -27,25 +25,20 @@ class PredictSettings:
     output: str = None
     mode: str = 'meta'  # meta, deploy or test
     high_res_output: bool = False
+    color_map: dict = None
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
+    n_architecture: str = 'default'
 
 
 class Predictor:
-    def __init__(self, settings: PredictSettings, network: Network = None, model=default_model):
+    def __init__(self, settings: PredictSettings, network: Network = None):
         self.settings = settings
-
         self.network = network
-        if not network:
-            graph = tf.Graph()
-            session = tf.Session(graph=graph)
-            if settings.mode == 'meta':
-                self.network = Network('meta', graph, session, model, settings.n_classes, 0, meta=settings.network)
-            elif settings.mode == 'deploy':
-                self.network = Network(settings.mode, graph, session, model, settings.n_classes, 0)
-                self.network.load_weights(settings.network, restore_only_trainable=True)
-            else:
-                raise Exception('Invalid value, either meta or deploy')
 
+        if not network:
+            self.network = Network("test", model_by_name(self.settings.n_architecture),
+                                   n_classes=len(self.settings.color_map)
+                                   , model=os.path.abspath(self.settings.network))
         if settings.output:
             output_dir = settings.output
             os.makedirs(os.path.join(output_dir, "overlay"), exist_ok=True)
@@ -54,7 +47,7 @@ class Predictor:
 
     def predict(self, dataset: Dataset) -> Generator[Prediction, None, None]:
         for data in dataset.data:
-            pred, prob = self.network.predict_single_data(data)
+            logit, prob, pred = self.network.predict_single_data(data)
 
             if self.settings.post_process:
                 for processor in self.settings.post_process:
@@ -62,32 +55,6 @@ class Predictor:
 
             self.output_data(pred, data)
             yield Prediction(pred, prob, data)
-
-    def test(self, dataset: Dataset, n_classes: int = 0):
-        """
-        Run classifier on given dataset and evaluate
-        :param dataset: input data
-        :param n_classes: if nonzero: calculate FgPA per class for classes up to n_classes
-        :return: accuracy,
-                 FgPA,
-                 array with overlap for class i at index i,
-                 array of number of images with class i at index i
-        """
-        self.network.set_data(dataset)
-        total_a, total_fg = 0, 0
-        total_fg_per_class = np.zeros(n_classes + 1)
-        total_fg_classes_present = np.full(n_classes + 1, self.network.n_data())
-        for pred, a, fg, data in tqdm(self.network.test_dataset(), total=self.network.n_data()):
-            total_a += a / self.network.n_data()
-            total_fg += fg / self.network.n_data()
-            if n_classes > 0:
-                overlap, _, _, _ = fgoverlap_per_class(pred, data.mask, data.binary, n_classes)
-                total_fg_per_class += np.nan_to_num(overlap)
-                total_fg_classes_present -= np.isnan(overlap)
-
-            self.output_data(pred, data)
-
-        return total_a, total_fg, total_fg_per_class / total_fg_classes_present, total_fg_classes_present
 
     def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:
@@ -107,18 +74,20 @@ class Predictor:
             else:
                 filename = os.path.basename(data.image_path)
 
-            color_mask = label_to_colors(pred)
-            foreground = np.stack([(1 - data.image / 255)] * 3, axis=-1)
+            color_mask = label_to_colors(pred, colormap=self.settings.color_map)
+            foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
             inv_binary = data.binary
 
             if self.settings.high_res_output:
+                print('asdsd')
                 color_mask = resize(color_mask, data.original_shape, order=0)
                 foreground = resize(foreground, data.original_shape) / 255
                 inv_binary = resize(inv_binary, data.original_shape, order=0)
-
             inv_binary = np.stack([inv_binary] * 3, axis=-1)
-            overlay_mask = np.ndarray.astype(color_mask * foreground, dtype=np.uint8)
-            inverted_overlay_mask = np.ndarray.astype(color_mask * inv_binary, dtype=np.uint8)
+            overlay_mask = color_mask.copy()
+            overlay_mask[foreground == 0] = 0
+            inverted_overlay_mask = color_mask.copy()
+            inverted_overlay_mask[inv_binary == 0] = 0
 
             img_io.imsave(os.path.join(self.settings.output, "color", filename), color_mask)
             img_io.imsave(os.path.join(self.settings.output, "overlay", filename), overlay_mask)

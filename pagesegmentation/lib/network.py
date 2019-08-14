@@ -1,338 +1,201 @@
 import tensorflow as tf
 import numpy as np
-import sys
-from typing import Generator, Tuple
-
-from .data_augmenter import DataAugmenterBase
 from .dataset import Dataset, SingleData
-
-
-def calculate_padding(input, scaling_factor: int = 8):
-    def scale(i: int, f: int) -> int:
-        return (f - i % f) % f
-
-    shape = tf.shape(input)
-    px = scale(tf.gather(shape, 1), scaling_factor)
-    py = scale(tf.gather(shape, 2), scaling_factor)
-
-    return px, py
-
-
-def pad(input, padding):
-    if input is None:
-        return None
-
-    three_dims = len(input.get_shape()) == 3
-    if three_dims:
-        input = tf.expand_dims(input, axis=-1)
-    px, py = padding
-    shape = tf.shape(input)
-    output = tf.image.pad_to_bounding_box(input, 0, 0, tf.gather(shape, 1) + px, tf.gather(shape, 2) + py)
-
-    if three_dims:
-        output = tf.squeeze(output, axis=-1)
-
-    return output
-
-
-def crop(input, padding):
-    if input is None:
-        return None
-
-    three_dims = len(input.get_shape()) == 3
-    if three_dims:
-        input = tf.expand_dims(input, axis=-1)
-
-    px, py = padding
-    shape = tf.shape(input)
-    output = tf.image.crop_to_bounding_box(input, 0, 0, tf.gather(shape, 1) - px, tf.gather(shape, 2) - py)
-
-    if three_dims:
-        output = tf.squeeze(output, axis=-1)
-
-    return output
 
 
 class Network:
     def __init__(self,
                  type: str,
-                 graph: tf.Graph,
-                 session: tf.Session,
                  model_constructor,
                  n_classes: int,
-                 l_rate: float,
-                 reuse: bool = False, has_binary: bool = False, fixed_size: Tuple[int, int] = None,
-                 data_augmentation: DataAugmenterBase = None,
-                 meta: str = '', foreground_masks: bool = False):
+                 l_rate: float = 1e-4,
+                 has_binary: bool = False,
+                 foreground_masks: bool = False,
+                 model: str = None,
+                 continue_training: bool = False,
+                 ):
         """
-        :param type: network type, either "train", "test", "deploy" or "meta" (for loading from file)
-        :param graph: tensorflow graph
-        :param session: tensorflow session
         :param model_constructor: function that takes the input layer and number of classes and creates the model
         :param n_classes: number of classes
         :param l_rate: learning rate
-        :param reuse: reuse tensorflow variable scope
         :param has_binary:
         :param fixed_size: resize images to given dimensions
         :param data_augmentation: preprocessing to apply to data
-        :param meta: name of model to load (if type = meta)
         :param foreground_masks: keep only mask parts that are foreground in binary image (training only)
+        :param model: continue Training
+        :param
         """
-        meta = meta[:-5] if meta.endswith(".meta") else meta
+        self._data: Dataset = Dataset([], {})
         self.type = type
-        self._data: Dataset = Dataset([])
-        self.graph = graph
-        self.session = session
         self.has_binary = has_binary
-        self.data_augmentation = data_augmentation
-        with self.graph.as_default():
-            if type == "meta":
-                self._init_from_meta(graph, meta)
-            else:
-                with tf.variable_scope("network", reuse=reuse):
-                    if type == "train" or type == "test":
-                        self.raw_binary_inputs, self.raw_inputs, self.raw_masks, self.data_idx, self.data_initializer = self.create_dataset_inputs()
-                    elif type == "deploy":
-                        self.raw_binary_inputs, self.raw_inputs, self.raw_masks = self.create_placeholders()
-                        self.data_idx = None
-                        self.data_initializer = None
-                    else:
-                        raise Exception("Undefined network")
+        self.foreground_masks = foreground_masks
+        self.input = tf.keras.layers.Input((None, None, 1))
+        self.binary = tf.keras.layers.Input((None, None, 1))
 
-                    if fixed_size:
-                        h, w = fixed_size
-                        self.inputs = tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_inputs, [-1]), h,
-                                                                             w)
-                        self.binary_inputs = tf.squeeze(
-                            tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_binary_inputs, [-1]), h, w),
-                            axis=-1)
-                        self.masks = tf.squeeze(
-                            tf.image.resize_image_with_crop_or_pad(tf.expand_dims(self.raw_masks, [-1]), h, w), axis=-1)
-                        padding = None
-                    else:
-                        self.inputs = tf.expand_dims(self.raw_inputs, [-1])
-                        padding = calculate_padding(self.inputs)
-                        self.inputs = pad(self.inputs, padding)
-                        self.binary_inputs = pad(self.raw_binary_inputs, padding)
-                        self.masks = pad(self.raw_masks, padding)
+        def loss(y_true, y_pred):
+            y_true = tf.keras.backend.reshape(y_true, (-1,))
+            y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
+            return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
+                                                                                         from_logits=True))
 
-                    self.inputs = tf.cast(self.inputs, tf.float32) / 255.0
+        def accuracy(y_true, y_pred):
+            y_true = tf.keras.backend.reshape(y_true, (-1,))
+            y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
+            return tf.keras.backend.mean(tf.keras.backend.equal(tf.keras.backend.cast(y_true, 'int64'),
+                                                                tf.keras.backend.argmax(y_pred, axis=-1)))
 
-                    self.logits = model_constructor(self.inputs, n_classes)
-                    self.logits = tf.identity(self.logits, name="logits")
-                    self.probs = tf.nn.softmax(self.logits, -1, name="probabilities")
-                    self.prediction = tf.argmax(self.logits, axis=-1, name="prediction")
+        def fgpl(k):
+            binary = k[0, :, :, 0]
 
-                    if fixed_size:
-                        self.cropped_probs = tf.identity(self.probs, name="cropped_probabilities")
-                        self.cropped_prediction = tf.identity(self.prediction, name="cropped_prediction")
-                    else:
-                        self.cropped_probs = crop(self.probs, padding)
-                        self.cropped_prediction = crop(self.prediction, padding)
-                        self.cropped_probs = tf.identity(self.cropped_probs, name="cropped_probabilities")
-                        self.cropped_prediction = tf.identity(self.cropped_prediction, name="cropped_prediction")
+            def fgpa_loss(y_true, y_pred):
+                bin = tf.keras.backend.reshape(binary, (-1,))
+                bin_classes = tf.keras.backend.reshape(tf.keras.backend.concatenate(
+                    [bin for i in range(n_classes)], axis=-1), (-1, n_classes))
+                y_true = tf.keras.backend.reshape(y_true, (-1,)) * bin
+                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes)) * bin_classes
+                return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
+                                                                                             from_logits=True))
 
-                    if type == "train" or type == "test":
-                        self.single_pa, self.pixel_accuracy, self.single_fgpa, self.foreground_pixel_accuracy = \
-                            self.create_errors(self.prediction, self.masks, self.binary_inputs)
+            return fgpa_loss
 
-                        self.loss, self.train_op = self.create_solver(self.logits, self.binary_inputs, self.masks,
-                                                                      l_rate, foreground_masks)
-                    else:
-                        self.pixel_accuracy = None
-                        self.foreground_pixel_accuracy = None
+        def fgpa(binary_inputs):
+            binary = tf.keras.backend.reshape(binary_inputs, (-1,))
+            def fgpa_accuracy(y_true, y_pred):
+                y_true = tf.keras.backend.reshape(y_true, (-1,))
+                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
+                equals = tf.keras.backend.equal(tf.keras.backend.cast(y_true, 'int64'),
+                                                tf.keras.backend.argmax(y_pred, axis=-1))
 
-                    self.session.run(tf.global_variables_initializer())
+                def count_fg(img):
+                    return tf.reduce_sum(img, axis=-1)
 
-        tf.reset_default_graph()
+                fg_equals = tf.multiply(tf.keras.backend.cast(equals, 'int64'), tf.keras.backend.cast(binary, 'int64'))
+                fgpa_correct = count_fg(fg_equals)
+                fgpa_total = count_fg(binary)
+                single_fgpa = tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32))
+                fgpa = tf.reduce_mean(single_fgpa)
 
-    def _init_from_meta(self, graph, meta):
-        saver = tf.train.import_meta_graph(meta + '.meta')
-        saver.restore(self.session, meta)
-        self.raw_binary_inputs = self.raw_masks = self.data_idx = self.data_initializer = None
-        self.raw_inputs = graph.get_tensor_by_name("network/inputs:0")
-        self.probs = graph.get_tensor_by_name("network/probabilities:0")
-        self.prediction = graph.get_tensor_by_name("network/prediction:0")
-        self.cropped_probs = graph.get_tensor_by_name("network/cropped_probabilities:0")
-        self.cropped_prediction = graph.get_tensor_by_name("network/cropped_prediction:0")
+                return fgpa
 
-    def set_data(self, data: Dataset):
-        self._data = data
+            return fgpa_accuracy
 
-    @staticmethod
-    def create_solver(logits, binary_inputs, masks, l_rate, foreground_masks: bool, solver="Adam"):
-        if foreground_masks:
-            masks = masks * binary_inputs
-
-        loss = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(
-            labels=tf.cast(masks, tf.int32),
-            logits=logits,
-            # weights=binary_inputs * 0 + 1,
-        ))
-
-        if solver == "Adam":
-            optimizer = tf.train.AdamOptimizer(learning_rate=l_rate)
+        if model and continue_training:
+            self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
+                                                                           'fgpa': fgpa, 'fgpl': fgpl})
         else:
-            optimizer = tf.train.MomentumOptimizer(learning_rate=l_rate, momentum=0.9)
+            self.model = model_constructor([self.input, self.binary], n_classes)
+            optimizer = tf.keras.optimizers.Adam(lr=l_rate)
+            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary)])
+            if model:
+                self.model.load_weights(model)
 
-        gvs = optimizer.compute_gradients(loss)
-        grads = [grad for grad, _ in gvs]
-        global_norm = True
-        if global_norm:
-            grads, _ = tf.clip_by_global_norm(grads, clip_norm=1)
-        else:
-            grads = [tf.clip_by_value(grad, -0.1, 0.1) for grad in grads]
+    def create_dataset_inputs(self, train_data, data_augmentation=True):
+        def gray_to_rgb(img):
+            return np.repeat(img, 3, 2)
 
-        gvs = zip(grads, [var for _, var in gvs])
-        train_op = optimizer.apply_gradients(gvs, name="train_op")
+        while True:
+            for data_idx, d in enumerate(train_data):
 
-        return loss, train_op
+                b, i, m = d.binary, d.image, d.mask
+                if b is None:
+                    b = np.full(i.shape, 1, dtype=np.uint8)
+                    assert (i.dtype == np.uint8)
+                if self.foreground_masks:
+                    m[b != 1] = 0
+                if self.type == 'train' and data_augmentation and False:
+                    image_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
+                                                                                width_shift_range=0.0,
+                                                                                height_shift_range=0.0,
+                                                                                shear_range=0.00,
+                                                                                zoom_range=[0.95, 1.05],
+                                                                                horizontal_flip=False,
+                                                                                vertical_flip=False,
+                                                                                fill_mode='nearest',
+                                                                                data_format='channels_last',
+                                                                                brightness_range=[0.95, 1.05])
+                    binary_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
+                                                                                width_shift_range=0.0,
+                                                                                height_shift_range=0.0,
+                                                                                shear_range=0.00,
+                                                                                zoom_range=[0.95, 1.05],
+                                                                                horizontal_flip=False,
+                                                                                vertical_flip=False,
+                                                                                fill_mode='nearest',
+                                                                                data_format='channels_last')
+                    mask_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
+                                                                               width_shift_range=0.0,
+                                                                               height_shift_range=0.0,
+                                                                               shear_range=0.00,
+                                                                               zoom_range=[0.95, 1.05],
+                                                                               horizontal_flip=False,
+                                                                               vertical_flip=False,
+                                                                               fill_mode='nearest',
+                                                                               data_format='channels_last')
+                    seed = np.random.randint(0, 9999999)
+                    i_x = image_gen.flow(np.expand_dims(np.expand_dims(i, axis=0), axis=-1), seed=seed, batch_size=1)
+                    b_x = binary_gen.flow(np.expand_dims(np.expand_dims(b, axis=0), axis=-1), seed=seed, batch_size=1)
+                    m_x = mask_gen.flow(np.expand_dims(np.expand_dims(m, axis=0), axis=-1), seed=seed, batch_size=1)
+                    i_n = next(i_x)
+                    b_n = next(b_x)
+                    m_n = next(m_x)
+                    yield [i_n / 255.0, b_n], m_n
+                else:
+                    yield [np.expand_dims(np.expand_dims(i / 255.0, axis=0), axis=-1),
+                           np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
+                          np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
 
-    @staticmethod
-    def create_errors(prediction, masks, binary_inputs, batch_size=1):
-        equals = tf.equal(tf.cast(prediction, tf.uint8), masks)
-        single_accuracy = tf.reduce_mean(tf.cast(equals, tf.float32), axis=[1, 2])
-        accuracy = tf.reduce_mean(single_accuracy)
+    def train_dataset(self, train_data: Dataset, test__data: Dataset, output, epochs: int = 100,
+                      early_stopping: bool = True, early_stopping_interval: int = 5, tensorboardlogs: bool = True,
+                      augmentation: bool = False,):
+        callbacks = []
+        train_gen = self.create_dataset_inputs(train_data, augmentation)
+        test_gen = self.create_dataset_inputs(test__data, data_augmentation=False)
+        if True:
+            print(self.model.summary())
+            checkpoint = tf.keras.callbacks.ModelCheckpoint(output + '/best_model.hdf5',
+            monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True)
+            callbacks.append(checkpoint)
+            if early_stopping:
+                early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=early_stopping_interval
+                                                              , verbose=0, mode='auto', restore_best_weights=True)
+                callbacks.append(early_stop)
+            if tensorboardlogs:
+                from pagesegmentation.lib.callback import ModelDiagnoser
+                import pathlib
+                import os
+                import datetime
+                now = datetime.datetime.today()
+                output = os.path.join(
+                    output, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
+                pathlib.Path(output).mkdir(parents=True, exist_ok=True)
+                callback_gen = self.create_dataset_inputs(test__data, data_augmentation=False)
 
-        def count_fg(img):
-            return tf.reduce_sum(tf.cast(tf.reshape(img, (batch_size, -1)), tf.int32), axis=-1)
+                diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
+                                             1,  # batch_size
+                                             len(test__data),  # num_samples
+                                             output,  # output_dir
+                                             test__data.color_map)  # color_map
 
-        fg_equals = tf.multiply(tf.cast(equals, tf.uint8), binary_inputs)
-        fgpa_correct = count_fg(fg_equals)
-        fgpa_total = count_fg(binary_inputs)
+                tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs', histogram_freq=1, batch_size=1,
+                                                             write_graph=True, write_images=False)
+                callbacks.append(diagnose_cb)
+                callbacks.append(tensorboard)
 
-        single_fgpa = tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32))
-        fgpa = tf.reduce_mean(single_fgpa)
+        fg = self.model.fit(train_gen, epochs=epochs, steps_per_epoch=len(train_data),
+                            use_multiprocessing=False, workers=1, validation_steps=len(test__data),
+                            validation_data=test_gen,
+                            callbacks=callbacks)
+        return fg
 
-        return single_accuracy, accuracy, single_fgpa, fgpa
-
-    def create_dataset_inputs(self, batch_size=1, buffer_size=50):
-        with tf.variable_scope("", reuse=False):
-            data_augmenter = self.data_augmentation
-
-            def gen():
-                for data_idx, d in enumerate(self._data):
-                    b, i, m = d.binary, d.image, d.mask
-                    if b is None:
-                        b = np.full(i.shape, 1, dtype=np.uint8)
-
-                    assert(b.dtype == np.uint8)
-                    assert(i.dtype == np.uint8)
-                    assert(m.dtype == np.uint8)
-                    yield b, i, m, data_idx
-
-            def data_augmentation(b, i, m, data_idx):
-                return data_augmenter.apply(b, i, m) + (data_idx,)
-
-            def set_data_shapes(b, i, m, data_idx):
-                b.set_shape([None, None])
-                i.set_shape([None, None])
-                m.set_shape([None, None])
-                return b, i, m, data_idx
-
-            datatype = (tf.uint8, tf.uint8, tf.uint8, tf.int32)
-            dataset = tf.data.Dataset.from_generator(gen, datatype, ([None, None], [None, None], [None, None], None))
-            if self.type == "train":
-                if data_augmenter:
-                    # map must not one thread less then the inter threads
-                    dataset = dataset.map(
-                        lambda b, i, m, data_idx: tuple(tf.py_func(data_augmentation, (b, i, m, data_idx), datatype)),
-                        num_parallel_calls=max(1, self.session._config.inter_op_parallelism_threads - 1))
-                    dataset = dataset.map(set_data_shapes)
-
-                dataset = dataset.repeat().shuffle(buffer_size, seed=10)
-            else:
-                pass
-
-            dataset = dataset.batch(batch_size)
-            # data augmentation
-            # dataset = dataset.map(convert_to_sparse)
-
-            data_initializer = dataset.prefetch(20).make_initializable_iterator()
-            inputs = data_initializer.get_next()
-            return inputs[0], inputs[1], inputs[2], inputs[3], data_initializer
-
-    def create_placeholders(self, b=1):
-        if self.has_binary:
-            raw_binary_inputs = tf.placeholder(tf.uint8, (b, None, None), "binary_inputs")
-        else:
-            raw_binary_inputs = None
-
-        raw_inputs = tf.placeholder(tf.uint8, (b, None, None), "inputs")
-        raw_masks = tf.placeholder(tf.uint8, (b, None, None), "masks")
-
-        return raw_binary_inputs, raw_inputs, raw_masks
-
-    def uninitialized_variables(self):
-        with self.graph.as_default():
-            global_vars = tf.global_variables()
-            is_not_initialized = self.session.run([tf.is_variable_initialized(var) for var in global_vars])
-            not_initialized_vars = [v for (v, f) in zip(global_vars, is_not_initialized) if not f]
-
-            return not_initialized_vars
-
-    def prepare(self, uninitialized_variables_only=True):
-        with self.graph.as_default():
-            if uninitialized_variables_only:
-                self.session.run(tf.variables_initializer(self.uninitialized_variables()))
-            else:
-                init_op = tf.group(tf.global_variables_initializer(),
-                                   tf.local_variables_initializer())
-                self.session.run(init_op)
-
-            self.session.run([self.data_initializer.initializer])
-
-    def load_weights(self, filepath, restore_only_trainable=True):
-        with self.graph.as_default():
-            # reload trainable variables only (e. g. omitting solver specific variables)
-            if restore_only_trainable:
-                saver = tf.train.Saver(tf.trainable_variables())
-            else:
-                saver = tf.train.Saver()
-
-            # Restore variables from disk.
-            # This will possible load a weight matrix with wrong shape, thus a codec resize is necessary
-            saver.restore(self.session, filepath)
-
-    def save_checkpoint(self, output_file, checkpoint=None):
-        with self.graph.as_default():
-            saver = tf.train.Saver()
-            if checkpoint is None:
-                saver.save(self.session, output_file)
-            else:
-                saver.save(self.session, output_file, global_step=checkpoint)
-
-    def train_dataset(self):
-        l, _, a, fg = self.session.run((self.loss, self.train_op, self.pixel_accuracy, self.foreground_pixel_accuracy))
-
-        if not np.isfinite(l):
-            print("WARNING: Infinite loss. Skipping batch.", file=sys.stderr)
-
-        return l, a, fg
-
-    def test_dataset(self) -> Generator[Tuple[float, float, float, SingleData], None, None]:
-        with self.graph.as_default():
-            if self.data_initializer:
-                self.session.run([self.data_initializer.initializer])
-
-        try:
-            while True:
-                pred, acc, fgacc, idxs = self.session.run(
-                    (self.prediction, self.single_pa, self.single_fgpa, self.data_idx))
-                for l, a, fg, idx in zip(pred, acc, fgacc, idxs):
-                    yield l, a, fg, self._data.data[idx]
-
-        except tf.errors.OutOfRangeError:
-            pass
+    def evaluate_dataset(self, eval_data):
+        eval_gen = self.create_dataset_inputs(eval_data, data_augmentation=False)
+        self.model.evaluate(eval_gen, batch_size=1, steps=len(eval_data))
 
     def predict_single_data(self, data: SingleData):
-        pred, prob = self.session.run((self.cropped_prediction, self.cropped_probs), {
-            self.raw_inputs: [data.image],
-        })
-        return pred[0], prob[0]
+        from scipy.special import softmax
+        logit = self.model.predict([np.expand_dims(np.expand_dims(data.image / 255, axis=0), axis=-1),
+                                   np.expand_dims(np.expand_dims(data.binary, axis=0), axis=-1)])[0, :, :, :]
+        prob = softmax(logit, -1)
+        pred = np.argmax(logit, -1)
+        return logit, prob, pred
 
-    def iters_per_epoch(self):
-        return len(self._data)  # / batch_size
-
-    def n_data(self):
-        return len(self._data)

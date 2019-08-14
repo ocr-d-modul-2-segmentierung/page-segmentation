@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from random import shuffle
 from typing import List, Tuple, Optional, Any
 from skimage.transform import resize, rescale
-from imageio import imread
-
+from PIL import Image
+import itertools
 
 @dataclass
 class SingleData:
@@ -28,6 +28,7 @@ class SingleData:
 @dataclass
 class Dataset:
     data: List[SingleData]
+    color_map: dict
 
     def __len__(self):
         return len(self.data)
@@ -99,49 +100,23 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             for b_p, i_p, m_p, l_h in zip(bin, img, m, line_height_px)]
 
 
-
-def color_to_label(mask, marginalia_as_text=True):
-    color_label_pairs = [
-        ((0, 0, 0),           0),
-        ((255, 255, 255),     0),
-        ((255, 0, 0),         1),
-        ((0, 255, 0),         2),
-        ((0, 0, 255),         3),
-        ((255, 0, 255),       1),
-        ((255, 255, 0),       1 if marginalia_as_text else 3),
-        ((128, 0, 0),         1),
-        ((0, 255, 255),       1),
-        ((128, 128, 0),       3),  # headline
-        ((0, 128, 128),       2),  # drop capital
-    ]
-
+def color_to_label(mask, colormap: dict):
     out = np.zeros(mask.shape[0:2], dtype=np.int32)
+    if mask.ndim == 2:
+
+        return out
     mask = mask.astype(np.uint32)
     mask = 256 * 256 * mask[:, :, 0] + 256 * mask[:, :, 1] + mask[:, :, 2]
-
-    for color, label in color_label_pairs:
-        color = 256 * 256 * color[0] + 256 * color[1] + color[2]
-        out += (mask == color) * label
-
+    for color, label in colormap.items():
+        color_1d = 256 * 256 * color[0] + 256 * color[1] + color[2]
+        out += (mask == color_1d) * label[0]
     return out
 
 
-def label_to_colors(mask):
-    colors = [
-        (255, 255, 255),
-        (255, 0, 0),
-        (0, 255, 0),
-        (255, 255, 0),
-    ]
-    labels = [
-        0,
-        1,
-        2,
-        3,
-    ]
+def label_to_colors(mask, colormap: dict):
     out = np.zeros(mask.shape + (3,), dtype=np.int64)
-    for color, label in zip(colors, labels):
-        trues = np.stack([(mask == label)] * 3, axis=-1)
+    for color, label in colormap.items():
+        trues = np.stack([(mask == label[0])] * 3, axis=-1)
         out += np.tile(color, mask.shape + (1,)) * trues
 
     out = np.ndarray.astype(out, dtype=np.uint8)
@@ -149,37 +124,46 @@ def label_to_colors(mask):
 
 
 class DatasetLoader:
-    def __init__(self, target_line_height, prediction=False):
+    def __init__(self, target_line_height, color_map, prediction=False, ):
         self.target_line_height = target_line_height
         self.prediction = prediction
+        self.color_map = color_map
 
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
         scale = self.target_line_height / dataset_file_entry.line_height_px
 
         def load_if_needed(data: SingleData, attr: str, as_gray: bool) -> np.ndarray:
             file = getattr(data, attr)
-            return file if file is not None else imread(getattr(data, attr + '_path'), as_gray=as_gray)
+            if file is not None:
+                return file
+            else:
+                pil_image = Image.open(getattr(data, attr + '_path'))
+                if pil_image.mode == 'RGBA':
+                    pil_image = pil_image.convert('RGB')
+                if as_gray:
+                    pil_image = pil_image.convert('L')
+                return np.asarray(pil_image)
 
         # inverted grayscale (black background)
         img = load_if_needed(dataset_file_entry, 'image', as_gray=True)
 
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
-        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True) / 255
+        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False) / 255
         img = 1.0 - resize(img, bin.shape, order=3, preserve_range=True) / 255
         scaled_shape = img.shape
-
 
         # color
         if not self.prediction:
             mask = load_if_needed(dataset_file_entry, 'mask', as_gray=False)
             mask = resize(mask, scaled_shape, order=0, anti_aliasing=False, preserve_range=True)
-            if mask.ndim == 3:
-                mask = color_to_label(mask)
-            mean = np.mean(mask)
-            if not 0 <= mean < 3:
-                raise Exception("Invalid file at {}".format(dataset_file_entry))
 
+            if mask.ndim == 3:
+                mask = color_to_label(mask, self.color_map)
+            elif mask.ndim == 2:
+                u_values = np.unique(mask)
+                for ind, x in enumerate(u_values):
+                    mask[mask == x] = ind
             assert (mask.shape == img.shape)
             dataset_file_entry.mask = mask.astype(np.uint8)
 
@@ -190,13 +174,15 @@ class DatasetLoader:
         return dataset_file_entry
 
     def load_data(self, all_dataset_files) -> Dataset:
+
         with multiprocessing.Pool(processes=12, maxtasksperchild=100) as p:
             out = list(tqdm.tqdm(p.imap(self.load_images, all_dataset_files), total=len(all_dataset_files)))
 
-        return Dataset(out)
+        return Dataset(out, self.color_map)
 
     def load_data_from_json(self, files, type) -> Dataset:
         all_files = []
+        print(files)
         for f in files:
             all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
 
@@ -236,7 +222,6 @@ class DatasetLoader:
 
 
 if __name__ == "__main__":
-    loader = DatasetLoader(4)
+    loader = DatasetLoader(4, color_map={})
     loader.load_test()
 
-    working_dir = "/scratch/wick/datasets/page_segmentation/Prediction/FCN_tf/train_ocr-d_test_5066"

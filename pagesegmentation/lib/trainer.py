@@ -1,31 +1,10 @@
-from .dataset import Dataset
+from pagesegmentation.lib.dataset import DatasetLoader, Dataset
+from pagesegmentation.lib.model import model_by_name
 from typing import NamedTuple
-from tqdm import tqdm
-from pagesegmentation.lib.data_augmenter import DataAugmenterBase
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class TrainProgressCallback:
-    def __init__(self):
-        super().__init__()
-        self.total_iters = 0
-        self.early_stopping_iters = 0
-
-    def init(self, total_iters, early_stopping_iters):
-        self.total_iters = total_iters
-        self.early_stopping_iters = early_stopping_iters
-
-    def next_iteration(self, iter: int, loss: float, acc: float, fgpa: float):
-        pass
-
-    def next_best_model(self, best_iter: int, best_acc: float, best_iters: int):
-        pass
-
-    def early_stopping(self):
-        pass
 
 
 class TrainSettings(NamedTuple):
@@ -34,49 +13,29 @@ class TrainSettings(NamedTuple):
     l_rate: float
     train_data: Dataset
     validation_data: Dataset
-    load: str
     display: int
     output: str
-    early_stopping_test_interval: int
-    early_stopping_max_keep: int
-    early_stopping_on_accuracy: bool
-    checkpoint_iter_delta: int
     threads: int
-    data_augmentation: DataAugmenterBase = None
+    early_stopping_max_l_rate_drops: int
+    data_augmentation: bool
+    n_architecture: str = 'fcn_skip'
+    evaluation_data: Dataset = None
+    load: str = None
+    continue_training: bool = False
     compute_baseline: bool = False
     foreground_masks: bool = False
+    tensorboard: bool = False
 
 
 class Trainer:
     def __init__(self, settings: TrainSettings):
         self.settings = settings
-
-        from .network import Network
-        from .model import model
-        import tensorflow as tf
-
-        self.graph = tf.Graph()
-        # session requires at least 3 inter threads to prevent a deadlock
-        # (see https://github.com/tensorflow/tensorflow/issues/10369)
-        self.session = tf.Session(graph=self.graph,
-                                  config=tf.ConfigProto(
-                                      intra_op_parallelism_threads=settings.threads,
-                                      inter_op_parallelism_threads=max(3, settings.threads),
-                                  ))
-
-        self.train_net = Network("train", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate,
-                                 reuse=False, data_augmentation=settings.data_augmentation,
-                                 foreground_masks=settings.foreground_masks)
-        self.test_net = Network("test", self.graph, self.session, model, settings.n_classes, l_rate=settings.l_rate,
-                                reuse=True)
-
-        self.deploy_graph = tf.Graph()
-        self.deploy_session = tf.Session(graph=self.deploy_graph)
-        self.deploy_net = Network("deploy", self.deploy_graph, self.deploy_session, model, settings.n_classes,
-                                  l_rate=settings.l_rate)
-
-        self.train_net.set_data(settings.train_data)
-        self.test_net.set_data(settings.validation_data)
+        print(settings.n_classes)
+        from pagesegmentation.lib.network import Network
+        self.train_net = Network("train", model_by_name(self.settings.n_architecture), settings.n_classes,
+                                 l_rate=settings.l_rate,
+                                 foreground_masks=settings.foreground_masks, model=settings.load,
+                                 continue_training=settings.continue_training)
 
         if len(settings.train_data) == 0 and settings.n_iter > 0:
             raise Exception("No training files specified. Maybe set n_iter=0")
@@ -91,76 +50,50 @@ class Trainer:
             logging.info("Label percentage: {}".format(list(zip(range(settings.n_classes), label_percentage))))
             logging.info("Baseline: {}".format(max(label_percentage)))
 
-    def train(self, callback: TrainProgressCallback = None) -> None:
-        settings = self.settings
-        callback = callback if callback is not None else TrainProgressCallback()
-        callback.init(settings.n_iter, settings.early_stopping_max_keep)
+    def train(self) -> None:
+        self.train_net.train_dataset(self.settings.train_data, self.settings.validation_data, self.settings.output,
+                                     epochs=self.settings.n_iter, early_stopping=
+                                     True if self.settings.early_stopping_max_l_rate_drops != 0 else False,
+                                     early_stopping_interval=self.settings.early_stopping_max_l_rate_drops,
+                                     tensorboardlogs=self.settings.tensorboard,
+                                     augmentation=self.settings.data_augmentation)
 
-        def compute_pgpa(net, fg_not_a=not settings.early_stopping_on_accuracy):
-            total_a, total_fg = 0, 0
-            for logits, a, fg, _ in tqdm(net.test_dataset(), total=net.n_data()):
-                total_a += a / net.n_data()
-                total_fg += fg / net.n_data()
+    def eval(self) -> None:
+        if len(self.settings.evaluation_data) > 0:
+            self.train_net.evaluate_dataset(self.settings.evaluation_data)
+        else:
+            print(self.train_net.evaluate_dataset(self.settings.validation_data))
 
-            return total_fg if fg_not_a else total_a
 
-        self.train_net.prepare()
-        if settings.load:
-            self.train_net.load_weights(settings.load)
-
-        current_best_fgpa = 0
-        current_best_model_iter = 0
-        current_best_iters = 0
-        avg_loss, avg_acc, avg_fgpa = 10, 0, 0
-
-        cur_checkpoint = 0
-        for step in range(settings.n_iter):
-            if not (settings.checkpoint_iter_delta is None):
-                cur_checkpoint = cur_checkpoint if step < cur_checkpoint \
-                    else cur_checkpoint + settings.checkpoint_iter_delta
-            else:
-                cur_checkpoint = None
-            l, a, fg = self.train_net.train_dataset()
-
-            # m = max([np.abs(np.mean(g)) for g, _ in gs])
-            # print(m)
-            avg_loss = 0.99 * avg_loss + 0.01 * l
-            avg_acc = 0.99 * avg_acc + 0.01 * a
-            avg_fgpa = 0.99 * avg_fgpa + 0.01 * fg
-
-            callback.next_iteration(step, avg_loss, avg_acc, avg_fgpa)
-            if step % settings.display == 0:
-                print("#%05d (%.5f): Acc=%.5f FgPA=%.5f" % (step, avg_loss, avg_acc, avg_fgpa))
-
-            if (step + 1) % settings.early_stopping_test_interval == 0:
-                print("checking for early stopping")
-                test_fgpa = compute_pgpa(self.test_net)
-                if test_fgpa > current_best_fgpa:
-                    current_best_fgpa = test_fgpa
-                    current_best_model_iter = step + 1
-                    current_best_iters = 0
-                    print("New best model at iter {} with FgPA={}".format(current_best_model_iter, current_best_fgpa))
-
-                    print("Saving the model to {}".format(settings.output))
-                    self.train_net.save_checkpoint(settings.output)
-                    self.deploy_net.load_weights(settings.output, restore_only_trainable=True)
-                    self.deploy_net.save_checkpoint(settings.output, checkpoint=cur_checkpoint)
-                else:
-                    current_best_iters += 1
-                    print("No new best model found. Current iterations {} with FgPA={}".format(current_best_iters,
-                                                                                               current_best_fgpa))
-
-                callback.next_best_model(current_best_iters, current_best_fgpa, current_best_iters)
-
-                if current_best_iters >= settings.early_stopping_max_keep:
-                    callback.early_stopping()
-                    print('early stopping at %d' % (step + 1))
-                    break
-
-        self.train_net.prepare(False)  # reset the net, required to prevent blocking of tensorflow on shutdown
-        self.test_net.prepare(False)   # possibly the garbage collector cant resolve the tf.Dataset
-
-        print("Best model at iter {} with fgpa of {}".format(current_best_model_iter, current_best_fgpa))
-        if current_best_iters > 0:
-            # restore best model
-            self.test_net.load_weights(settings.output, restore_only_trainable=True)
+if __name__ == "__main__":
+    from pagesegmentation.lib.dataset import DatasetLoader
+    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+    image_map = load_image_map_from_file('/home/alexander/Bilder/test_datenset/map.json/image_map.json')
+    dataset_loader = DatasetLoader(6, color_map=image_map)
+    print(dataset_loader.color_map)
+    train_data = dataset_loader.load_data_from_json(
+        ['/home/alexander/Bilder/test_datenset/t.json'], "train")
+    test_data = dataset_loader.load_data_from_json(
+        ['/home/alexander/Bilder/test_datenset/t.json'], "test")
+    eval_data = dataset_loader.load_data_from_json(
+        ['/home/alexander/Bilder/test_datenset/t.json'], "eval")
+    settings = TrainSettings(
+        n_iter=100,
+        n_classes=len(dataset_loader.color_map),
+        l_rate=1e-3,
+        train_data=train_data,
+        validation_data=test_data,
+        display=10,
+        output='/home/alexander/Bilder/test_datenset/',
+        threads=8,
+        foreground_masks=False,
+        data_augmentation=True,
+        tensorboard=True,
+        n_architecture='mobile_net',
+        early_stopping_max_l_rate_drops=5,
+        load='/home/alexander/Bilder/test_datenset/best_model.hdf5'
+    )
+    trainer = Trainer(settings)
+    trainer.train()
+    for x in test_data:
+        trainer.train_net.predict_single_data(x)
