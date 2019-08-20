@@ -31,61 +31,25 @@ class Network:
         self.foreground_masks = foreground_masks
         self.input = tf.keras.layers.Input((None, None, 1))
         self.binary = tf.keras.layers.Input((None, None, 1))
-
-        def loss(y_true, y_pred):
-            y_true = tf.keras.backend.reshape(y_true, (-1,))
-            y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-            return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
-                                                                                         from_logits=True))
-
-        def accuracy(y_true, y_pred):
-            y_true = tf.keras.backend.reshape(y_true, (-1,))
-            y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-            return tf.keras.backend.mean(tf.keras.backend.equal(tf.keras.backend.cast(y_true, 'int64'),
-                                                                tf.keras.backend.argmax(y_pred, axis=-1)))
-
-        def fgpl(k):
-            binary = k[0, :, :, 0]
-
-            def fgpa_loss(y_true, y_pred):
-                bin = tf.keras.backend.reshape(binary, (-1,))
-                bin_classes = tf.keras.backend.reshape(tf.keras.backend.concatenate(
-                    [bin for i in range(n_classes)], axis=-1), (-1, n_classes))
-                y_true = tf.keras.backend.reshape(y_true, (-1,)) * bin
-                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes)) * bin_classes
-                return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
-                                                                                             from_logits=True))
-
-            return fgpa_loss
-
-        def fgpa(binary_inputs):
-            binary = tf.keras.backend.reshape(binary_inputs, (-1,))
-            def fgpa_accuracy(y_true, y_pred):
-                y_true = tf.keras.backend.reshape(y_true, (-1,))
-                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-                equals = tf.keras.backend.equal(tf.keras.backend.cast(y_true, 'int64'),
-                                                tf.keras.backend.argmax(y_pred, axis=-1))
-
-                def count_fg(img):
-                    return tf.reduce_sum(img, axis=-1)
-
-                fg_equals = tf.multiply(tf.keras.backend.cast(equals, 'int64'), tf.keras.backend.cast(binary, 'int64'))
-                fgpa_correct = count_fg(fg_equals)
-                fgpa_total = count_fg(binary)
-                single_fgpa = tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32))
-                fgpa = tf.reduce_mean(single_fgpa)
-
-                return fgpa
-
-            return fgpa_accuracy
-
+        self.n_classes = n_classes
+        from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
+            fgpa, fgpl, jacard_coef
         if model and continue_training:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
                                                                            'fgpa': fgpa, 'fgpl': fgpl})
         else:
+            def loss(y_true, y_pred):
+                y_true = tf.Print(y_true, [tf.keras.backend.shape(y_pred)[3]])
+                y_true = tf.keras.backend.reshape(y_true, (-1,))
+                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
+
+                return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
+                                                                                             from_logits=True))
+
             self.model = model_constructor([self.input, self.binary], n_classes)
             optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary)])
+            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary),
+                                                                        jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
 
@@ -113,15 +77,17 @@ class Network:
                                                                                 fill_mode='nearest',
                                                                                 data_format='channels_last',
                                                                                 brightness_range=[0.95, 1.05])
+
                     binary_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                                width_shift_range=0.0,
-                                                                                height_shift_range=0.0,
-                                                                                shear_range=0.00,
-                                                                                zoom_range=[0.95, 1.05],
-                                                                                horizontal_flip=False,
-                                                                                vertical_flip=False,
-                                                                                fill_mode='nearest',
-                                                                                data_format='channels_last')
+                                                                                 width_shift_range=0.0,
+                                                                                 height_shift_range=0.0,
+                                                                                 shear_range=0.00,
+                                                                                 zoom_range=[0.95, 1.05],
+                                                                                 horizontal_flip=False,
+                                                                                 vertical_flip=False,
+                                                                                 fill_mode='nearest',
+                                                                                 data_format='channels_last')
+
                     mask_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
                                                                                width_shift_range=0.0,
                                                                                height_shift_range=0.0,
@@ -153,11 +119,16 @@ class Network:
         if True:
             print(self.model.summary())
             checkpoint = tf.keras.callbacks.ModelCheckpoint(output + '/best_model.hdf5',
-            monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True)
+                                                            monitor='val_loss',
+                                                            verbose=1,
+                                                            save_best_only=True,
+                                                            save_weights_only=True)
             callbacks.append(checkpoint)
             if early_stopping:
-                early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=early_stopping_interval
-                                                              , verbose=0, mode='auto', restore_best_weights=True)
+                early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0,
+                                                              patience=early_stopping_interval,
+                                                              verbose=0, mode='auto',
+                                                              restore_best_weights=True)
                 callbacks.append(early_stop)
             if tensorboardlogs:
                 from pagesegmentation.lib.callback import ModelDiagnoser
@@ -167,8 +138,10 @@ class Network:
                 now = datetime.datetime.today()
                 output = os.path.join(
                     output, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
-                pathlib.Path(output).mkdir(parents=True, exist_ok=True)
-                callback_gen = self.create_dataset_inputs(test__data, data_augmentation=False)
+                pathlib.Path(output).mkdir(parents=True,
+                                           exist_ok=True)
+                callback_gen = self.create_dataset_inputs(test__data,
+                                                          data_augmentation=False)
 
                 diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
                                              1,  # batch_size
@@ -176,13 +149,20 @@ class Network:
                                              output,  # output_dir
                                              test__data.color_map)  # color_map
 
-                tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs', histogram_freq=1, batch_size=1,
-                                                             write_graph=True, write_images=False)
+                tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
+                                                             histogram_freq=1,
+                                                             batch_size=1,
+                                                             write_graph=True,
+                                                             write_images=False)
                 callbacks.append(diagnose_cb)
                 callbacks.append(tensorboard)
 
-        fg = self.model.fit(train_gen, epochs=epochs, steps_per_epoch=len(train_data),
-                            use_multiprocessing=False, workers=1, validation_steps=len(test__data),
+        fg = self.model.fit(train_gen,
+                            epochs=epochs,
+                            steps_per_epoch=len(train_data),
+                            use_multiprocessing=False,
+                            workers=1,
+                            validation_steps=len(test__data),
                             validation_data=test_gen,
                             callbacks=callbacks)
         return fg

@@ -412,9 +412,10 @@ def ResUNet(input: Tensors, n_classes: int):
         conv = tf.keras.layers.Conv2D(filters, kernel_size, padding=padding, strides=strides)(conv)
         return conv
 
-    def bn_act(x, act=True):
+    def bn_act(x, act=True, batch_normailzation=False):
         'batch normalization layer with an optinal activation layer'
-        x = tf.keras.layers.BatchNormalization()(x)
+        if batch_normailzation:
+            x = tf.keras.layers.BatchNormalization()(x)
         if act == True:
             x = tf.keras.layers.Activation('relu')(x)
         return x
@@ -448,9 +449,9 @@ def ResUNet(input: Tensors, n_classes: int):
 
     u4 = upsample_concat_block(d3, e1)
     d4 = residual_block(u4, f[1])
+    d4 = tf.keras.layers.Lambda(crop)([d4, padding])
 
     outputs = tf.keras.layers.Conv2D(n_classes, (1, 1), padding="valid", name="logits")(d4)
-    outputs = tf.keras.layers.Lambda(crop)([outputs, padding])
 
     model = tf.keras.models.Model(input, outputs)
     return model
