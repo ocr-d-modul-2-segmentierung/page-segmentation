@@ -70,34 +70,34 @@ class Network:
                     assert (i.dtype == np.uint8)
                 if self.foreground_masks:
                     m[b != 1] = 0
-                if self.type == 'train' and data_augmentation and False:
+                if self.type == 'train' and data_augmentation:
                     image_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                                width_shift_range=0.0,
-                                                                                height_shift_range=0.0,
+                                                                                width_shift_range=0.025,
+                                                                                height_shift_range=0.025,
                                                                                 shear_range=0.00,
                                                                                 zoom_range=[0.95, 1.05],
-                                                                                horizontal_flip=False,
+                                                                                horizontal_flip=True,
                                                                                 vertical_flip=False,
                                                                                 fill_mode='nearest',
                                                                                 data_format='channels_last',
                                                                                 brightness_range=[0.95, 1.05])
 
                     binary_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                                 width_shift_range=0.0,
-                                                                                 height_shift_range=0.0,
+                                                                                 width_shift_range=0.025,
+                                                                                 height_shift_range=0.025,
                                                                                  shear_range=0.00,
                                                                                  zoom_range=[0.95, 1.05],
-                                                                                 horizontal_flip=False,
+                                                                                 horizontal_flip=True,
                                                                                  vertical_flip=False,
                                                                                  fill_mode='nearest',
                                                                                  data_format='channels_last')
 
                     mask_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                               width_shift_range=0.0,
-                                                                               height_shift_range=0.0,
+                                                                               width_shift_range=0.025,
+                                                                               height_shift_range=0.025,
                                                                                shear_range=0.00,
                                                                                zoom_range=[0.95, 1.05],
-                                                                               horizontal_flip=False,
+                                                                               horizontal_flip=True,
                                                                                vertical_flip=False,
                                                                                fill_mode='nearest',
                                                                                data_format='channels_last')
@@ -105,6 +105,7 @@ class Network:
                     i_x = image_gen.flow(np.expand_dims(np.expand_dims(i, axis=0), axis=-1), seed=seed, batch_size=1)
                     b_x = binary_gen.flow(np.expand_dims(np.expand_dims(b, axis=0), axis=-1), seed=seed, batch_size=1)
                     m_x = mask_gen.flow(np.expand_dims(np.expand_dims(m, axis=0), axis=-1), seed=seed, batch_size=1)
+
                     i_n = next(i_x)
                     b_n = next(b_x)
                     m_n = next(m_x)
