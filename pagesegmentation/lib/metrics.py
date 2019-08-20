@@ -56,20 +56,21 @@ def fgpa(binary_inputs):
 
     return fgpa_accuracy
 
+
 def jacard_coef(y_true, y_pred):
     n_classes = tf.keras.backend.shape(y_pred)[3]
     y_pred = tf.keras.activations.softmax(y_pred)
     y_true = tf.keras.backend.squeeze(y_true, axis=-1)
     y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
 
-    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1,2))
-    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1,2))
+    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
+    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     jac = (intersection + 100) / (sum_ - intersection + 100)
     return tf.reduce_mean(jac)
 
 
 def jacard_coef_loss(y_true, y_pred):
-    return -jacard_coef(y_true, y_pred) * 100
+    return (1 - jacard_coef(y_true, y_pred)) * 100
 
 
 def dice_coef(y_true, y_pred):
@@ -78,11 +79,11 @@ def dice_coef(y_true, y_pred):
     y_true = tf.keras.backend.squeeze(y_true, axis=-1)
     y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
 
-    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1,2))
-    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1,2))
+    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
+    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     dice = (2.0 * intersection + 100) / (sum_ + 100)
     return tf.reduce_mean(dice)
 
 
 def dice_coef_loss(y_true, y_pred):
-    return -dice_coef(y_true, y_pred) * 100
+    return (1 - dice_coef(y_true, y_pred)) * 100

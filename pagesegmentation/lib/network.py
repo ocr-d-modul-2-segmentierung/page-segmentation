@@ -33,10 +33,14 @@ class Network:
         self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
         from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
-            fgpa, fgpl, jacard_coef
+            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss
         if model and continue_training:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
-                                                                           'fgpa': fgpa, 'fgpl': fgpl})
+                                                                           'fgpa': fgpa, 'fgpl': fgpl,
+                                                                           'dice_coef': dice_coef,
+                                                                           'jacard_coef': jacard_coef,
+                                                                           'dice_coef_loss': dice_coef_loss,
+                                                                           'jacard_coef_loss': jacard_coef_loss})
         else:
             def loss(y_true, y_pred):
                 y_true = tf.Print(y_true, [tf.keras.backend.shape(y_pred)[3]])
@@ -48,7 +52,7 @@ class Network:
 
             self.model = model_constructor([self.input, self.binary], n_classes)
             optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary),
+            self.model.compile(optimizer=optimizer, loss=dice_coef_loss, metrics=[accuracy, fgpa(self.binary),
                                                                         jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
