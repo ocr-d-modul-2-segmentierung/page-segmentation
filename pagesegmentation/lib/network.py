@@ -43,7 +43,6 @@ class Network:
                                                                            'jacard_coef_loss': jacard_coef_loss})
         else:
             def loss(y_true, y_pred):
-                y_true = tf.Print(y_true, [tf.keras.backend.shape(y_pred)[3]])
                 y_true = tf.keras.backend.reshape(y_true, (-1,))
                 y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
 
@@ -52,7 +51,7 @@ class Network:
 
             self.model = model_constructor([self.input, self.binary], n_classes)
             optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-            self.model.compile(optimizer=optimizer, loss=dice_coef_loss, metrics=[accuracy, fgpa(self.binary),
+            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary),
                                                                         jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
@@ -60,6 +59,12 @@ class Network:
     def create_dataset_inputs(self, train_data, data_augmentation=True):
         def gray_to_rgb(img):
             return np.repeat(img, 3, 2)
+
+        def preprocessing(array):
+            frac, integ = np.modf(array)
+            mask = (frac > 0) & (frac < 0.5)
+            array[mask] = 0
+            return np.round(array)
 
         while True:
             for data_idx, d in enumerate(train_data):
@@ -71,36 +76,41 @@ class Network:
                 if self.foreground_masks:
                     m[b != 1] = 0
                 if self.type == 'train' and data_augmentation:
-                    image_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                                width_shift_range=0.025,
-                                                                                height_shift_range=0.025,
-                                                                                shear_range=0.00,
-                                                                                zoom_range=[0.95, 1.05],
-                                                                                horizontal_flip=True,
-                                                                                vertical_flip=False,
-                                                                                fill_mode='nearest',
-                                                                                data_format='channels_last',
-                                                                                brightness_range=[0.95, 1.05])
+                    from pagesegmentation.lib.data_generator import ImageDataGeneratorCustom
+                    image_gen = ImageDataGeneratorCustom(rotation_range=2.5,
+                                                         width_shift_range=0.025,
+                                                         height_shift_range=0.025,
+                                                         shear_range=0.00,
+                                                         zoom_range=[0.95, 1.05],
+                                                         horizontal_flip=False,
+                                                         vertical_flip=False,
+                                                         fill_mode='nearest',
+                                                         data_format='channels_last',
+                                                         brightness_range=[0.95, 1.05],
+                                                         interpolation_order=1)
 
-                    binary_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                                 width_shift_range=0.025,
-                                                                                 height_shift_range=0.025,
-                                                                                 shear_range=0.00,
-                                                                                 zoom_range=[0.95, 1.05],
-                                                                                 horizontal_flip=True,
-                                                                                 vertical_flip=False,
-                                                                                 fill_mode='nearest',
-                                                                                 data_format='channels_last')
+                    binary_gen = ImageDataGeneratorCustom(rotation_range=2.5,
+                                                          width_shift_range=0.025,
+                                                          height_shift_range=0.025,
+                                                          shear_range=0.00,
+                                                          zoom_range=[0.95, 1.05],
+                                                          horizontal_flip=False,
+                                                          vertical_flip=False,
+                                                          fill_mode='nearest',
+                                                          data_format='channels_last',
+                                                          interpolation_order=0)
 
-                    mask_gen = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=5,
-                                                                               width_shift_range=0.025,
-                                                                               height_shift_range=0.025,
-                                                                               shear_range=0.00,
-                                                                               zoom_range=[0.95, 1.05],
-                                                                               horizontal_flip=True,
-                                                                               vertical_flip=False,
-                                                                               fill_mode='nearest',
-                                                                               data_format='channels_last')
+                    mask_gen = ImageDataGeneratorCustom(rotation_range=2.5,
+                                                        width_shift_range=0.025,
+                                                        height_shift_range=0.025,
+                                                        shear_range=0.00,
+                                                        zoom_range=[0.95, 1.05],
+                                                        horizontal_flip=False,
+                                                        vertical_flip=False,
+                                                        fill_mode='nearest',
+                                                        data_format='channels_last',
+                                                        interpolation_order=0,
+                                                        )
                     seed = np.random.randint(0, 9999999)
                     i_x = image_gen.flow(np.expand_dims(np.expand_dims(i, axis=0), axis=-1), seed=seed, batch_size=1)
                     b_x = binary_gen.flow(np.expand_dims(np.expand_dims(b, axis=0), axis=-1), seed=seed, batch_size=1)
@@ -109,6 +119,7 @@ class Network:
                     i_n = next(i_x)
                     b_n = next(b_x)
                     m_n = next(m_x)
+
                     yield [i_n / 255.0, b_n], m_n
                 else:
                     yield [np.expand_dims(np.expand_dims(i / 255.0, axis=0), axis=-1),
