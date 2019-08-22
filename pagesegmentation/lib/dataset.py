@@ -102,9 +102,11 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
 
 def color_to_label(mask, colormap: dict):
     out = np.zeros(mask.shape[0:2], dtype=np.int32)
-    if mask.ndim == 2:
 
-        return out
+    if mask.ndim == 2:
+        return mask.astype(np.int32) / 255
+    if mask.shape[2] == 2:
+        return mask[:, :, 0].astype(np.int32) / 255
     mask = mask.astype(np.uint32)
     mask = 256 * 256 * mask[:, :, 0] + 256 * mask[:, :, 1] + mask[:, :, 2]
     for color, label in colormap.items():

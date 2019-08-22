@@ -14,7 +14,7 @@ def get_image_colors(path_to_mask: np.array):
     if image_pil.mode == 'RGBA':
         image_pil = image_pil.convert('RGB')
     mask = np.asarray(image_pil)
-    if mask.ndim == 2:
+    if mask.ndim == 2 or mask.shape[2] == 2:
         return [(255, 255, 255), (0, 0, 0)]
     tt = mask.view()
     tt.shape = -1, 3

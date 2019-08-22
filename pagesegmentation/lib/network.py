@@ -141,9 +141,10 @@ class Network:
                                                             save_weights_only=True)
             callbacks.append(checkpoint)
             if early_stopping:
-                early_stop = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0,
+
+                early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
                                                               patience=early_stopping_interval,
-                                                              verbose=0, mode='auto',
+                                                              verbose=1, mode='auto',
                                                               restore_best_weights=True)
                 callbacks.append(early_stop)
             if tensorboardlogs:

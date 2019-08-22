@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--n_eval", type=float, default=0, help="For final model evaluation")
     parser.add_argument("--n_train", type=float, default=-1, help="For training")
     parser.add_argument("--n_test", type=float, default=20, help="For picking the best model")
-    parser.add_argument("--binary_dir", type=str, default="binary_images",
+    parser.add_argument("--binary_dir", type=str, default="binary",
                         help="directory name of the binary images")
     parser.add_argument("--images_dir", type=str, default="images",
                         help="directory name of the images on which to train")
@@ -21,7 +21,7 @@ def main():
                         help="directory name of the masks")
     parser.add_argument("--masks_postfix", type=str, default="",
                         help="Postfix to distinguish masks and images")
-    parser.add_argument("--normalizations_dir", type=str, default="normalizations")
+    parser.add_argument("--normalizations_dir", type=str, default="norm")
     parser.add_argument("--verify_filenames", action="store_true",
                         help="File names must match")
 
