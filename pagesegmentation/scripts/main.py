@@ -29,6 +29,11 @@ commands = {
         'main': 'main',
         'help': 'Compute image normalizations'
     },
+    'compute-image-map': {
+        'script': 'pagesegmentation.scripts.generate_image_map',
+        'main': 'main',
+        'help': 'Generates color map'
+    },
 }
 
 

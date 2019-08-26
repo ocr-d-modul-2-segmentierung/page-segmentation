@@ -10,7 +10,8 @@ import tqdm
 from pagesegmentation.lib.dataset import DatasetLoader, SingleData
 from pagesegmentation.lib.postprocess import vote_connected_component_class
 from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
-
+from pagesegmentation.lib.network import Network
+from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
 
 def glob_all(filenames):
     return [g for f in filenames for g in glob.glob(f)]
@@ -36,6 +37,10 @@ def main():
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
     parser.add_argument("--cc_majority", action="store_true",
                         help="classify all pixels of each connected component as most frequent class")
+    parser.add_argument("--color_map", type=str, required=True,
+                        help="color_map to load")
+    parser.add_argument("--architecture", type=str, default='default',
+                        help="color_map to load")
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -66,12 +71,16 @@ def main():
     if args.cc_majority:
         post_processors += [vote_connected_component_class]
 
+    image_map = load_image_map_from_file(args.color_map)
+
     predictions = predict(args.output,
                           binary_file_paths,
                           image_file_paths,
+                          image_map,
                           line_heights,
                           target_line_height=args.target_line_height,
                           model=args.load,
+                          architecture=args.architecture,
                           high_res_output=not args.keep_low_res,
                           post_processors=post_processors
                           )
@@ -83,13 +92,15 @@ def main():
 def predict(output,
             binary_file_paths: List[str],
             image_file_paths: List[str],
+            color_map: dict,
             line_heights: Union[List[int], int],
             target_line_height: int,
             model: str,
+            architecture: str,
             high_res_output: bool = True,
             post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
             ) -> Generator[Prediction, None, None]:
-    dataset_loader = DatasetLoader(target_line_height, prediction=True)
+    dataset_loader = DatasetLoader(target_line_height, prediction=True, color_map=color_map)
 
     if type(line_heights) is int:
         line_heights = [line_heights] * len(image_file_paths)
@@ -100,11 +111,12 @@ def predict(output,
     )
 
     settings = PredictSettings(
-        mode='meta',
         network=os.path.abspath(model),
         output=output,
         high_res_output=high_res_output,
         post_process=post_processors,
+        color_map=color_map,
+        n_architecture=architecture,
     )
     predictor = Predictor(settings)
 
