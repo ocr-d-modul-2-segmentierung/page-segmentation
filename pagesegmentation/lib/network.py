@@ -1,6 +1,13 @@
 import tensorflow as tf
 import numpy as np
+from typing import Optional
+from pagesegmentation.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
+
 from .dataset import Dataset, SingleData
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Network:
@@ -32,6 +39,17 @@ class Network:
         self.input = tf.keras.layers.Input((None, None, 1))
         self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
+        model = model if not model or '.' in model else model + '.h5'
+        if model and not os.path.exists(model) and model.endswith('.h5'):
+            from subprocess import check_call
+            import sys
+            from pathlib import Path
+            logger.info("Upgrading model to {}".format(model))
+            check_call([sys.executable, os.path.join(Path(__file__).parent.parent, 'scripts', 'migrate_model.py'),
+                        '--meta_path', model[:-3] + '.meta', '--output_path', model,
+                        '--n_classes', str(n_classes), '--l_rate', str(l_rate)
+                        ])
+
         from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
             fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss
         if model and continue_training:
@@ -42,16 +60,9 @@ class Network:
                                                                            'dice_coef_loss': dice_coef_loss,
                                                                            'jacard_coef_loss': jacard_coef_loss})
         else:
-            def loss(y_true, y_pred):
-                y_true = tf.keras.backend.reshape(y_true, (-1,))
-                y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-
-                return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
-                                                                                             from_logits=True))
-
             self.model = model_constructor([self.input, self.binary], n_classes)
             optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-            self.model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy, fgpa(self.binary),
+            self.model.compile(optimizer=optimizer, loss=loss(n_classes), metrics=[accuracy, fgpa(self.binary),
                                                                         jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
@@ -126,70 +137,85 @@ class Network:
                            np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
                           np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
 
-    def train_dataset(self, train_data: Dataset, test__data: Dataset, output, epochs: int = 100,
+    def train_dataset(self, train_data: Dataset, test_data: Dataset,
+                      output_dir: str, best_model_name: str,
+                      epochs: int = 100,
                       early_stopping: bool = True, early_stopping_interval: int = 5, tensorboardlogs: bool = True,
-                      augmentation: bool = False, reduce_lr_on_plateu=False):
+                      augmentation: bool = False, reduce_lr_on_plateu=False,
+                      callback: Optional[TrainProgressCallback] = None):
+        import os
         callbacks = []
         train_gen = self.create_dataset_inputs(train_data, augmentation)
-        test_gen = self.create_dataset_inputs(test__data, data_augmentation=False)
-        if True:
-            print(self.model.summary())
-            checkpoint = tf.keras.callbacks.ModelCheckpoint(output + '/best_model.hdf5',
-                                                            monitor='val_loss',
-                                                            verbose=1,
-                                                            save_best_only=True,
-                                                            save_weights_only=True)
-            callbacks.append(checkpoint)
-            if early_stopping:
+        test_gen = self.create_dataset_inputs(test_data, data_augmentation=False)
+        logger.info(self.model.summary)
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(output_dir, best_model_name + '.h5'),
+                                                        monitor='val_accuracy',
+                                                        verbose=1,
+                                                        save_best_only=True,
+                                                        save_weights_only=True)
+        callbacks.append(checkpoint)
 
-                early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                              patience=early_stopping_interval,
-                                                              verbose=1, mode='auto',
-                                                              restore_best_weights=True)
-                callbacks.append(early_stop)
-            if tensorboardlogs:
-                from pagesegmentation.lib.callback import ModelDiagnoser
-                import pathlib
-                import os
-                import datetime
-                now = datetime.datetime.today()
-                output = os.path.join(
-                    output, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
-                pathlib.Path(output).mkdir(parents=True,
-                                           exist_ok=True)
-                callback_gen = self.create_dataset_inputs(test__data,
-                                                          data_augmentation=False)
+        if early_stopping:
+            early_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy',
+                                                             patience=early_stopping_interval,
+                                                             min_delta=0.0005,
+                                                             verbose=1, mode='auto',
+                                                             restore_best_weights=True)
+            callbacks.append(early_stop_cb)
+        else:
+            early_stop_cb = None
 
-                diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
-                                             1,  # batch_size
-                                             len(test__data),  # num_samples
-                                             output,  # output_dir
-                                             test__data.color_map)  # color_map
+        if tensorboardlogs:
+            from pagesegmentation.lib.callback import ModelDiagnoser
+            import pathlib
+            import datetime
+            now = datetime.datetime.today()
+            output = os.path.join(
+                output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
+            pathlib.Path(output).mkdir(parents=True,
+                                       exist_ok=True)
+            callback_gen = self.create_dataset_inputs(test_data,
+                                                      data_augmentation=False)
 
-                tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
-                                                             histogram_freq=1,
-                                                             batch_size=1,
-                                                             write_graph=True,
-                                                             write_images=False)
-                callbacks.append(diagnose_cb)
-                callbacks.append(tensorboard)
-            if reduce_lr_on_plateu:
-                redurce_lr_plateau = tf.keras.callbacks.ReduceLROnPlateau(
-                    monitor='val_loss',
-                    factor=0.5,
-                    patience=early_stopping_interval / 2,
-                    min_lr=0.000001,
-                    verbose=1)
-                callbacks.append(redurce_lr_plateau)
+            diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
+                                         1,  # batch_size
+                                         len(test_data),  # num_samples
+                                         output,  # output_dir
+                                         test_data.color_map)  # color_map
+
+            tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
+                                                         histogram_freq=1,
+                                                         batch_size=1,
+                                                         write_graph=True,
+                                                         write_images=False)
+            callbacks.append(diagnose_cb)
+            callbacks.append(tensorboard)
+
+        if reduce_lr_on_plateu:
+            redurce_lr_plateau = tf.keras.callbacks.ReduceLROnPlateau(
+                monitor='val_loss',
+                factor=0.5,
+                patience=early_stopping_interval / 2,
+                min_lr=0.000001,
+                verbose=1)
+            callbacks.append(redurce_lr_plateau)
+
+        if callback:
+            callbacks.append(TrainProgressCallbackWrapper(
+                len(train_data),
+                callback,
+                early_stop_cb,
+            ))
 
         fg = self.model.fit(train_gen,
                             epochs=epochs,
                             steps_per_epoch=len(train_data),
                             use_multiprocessing=False,
                             workers=1,
-                            validation_steps=len(test__data),
+                            validation_steps=len(test_data),
                             validation_data=test_gen,
                             callbacks=callbacks)
+
         return fg
 
     def evaluate_dataset(self, eval_data):

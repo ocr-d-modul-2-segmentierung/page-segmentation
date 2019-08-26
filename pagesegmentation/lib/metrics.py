@@ -1,12 +1,14 @@
 import tensorflow as tf
 
 
-def loss(y_true, y_pred):
-    n_classes = tf.keras.backend.shape(y_pred)[3]
-    y_true = tf.keras.backend.reshape(y_true, (-1,))
-    y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-    return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
-                                                                                 from_logits=True))
+def loss(n_classes: int):
+    def _loss(y_true, y_pred):
+        y_true = tf.keras.backend.reshape(y_true, (-1,))
+        y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
+        return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
+                                                                                     from_logits=True))
+
+    return _loss
 
 
 def accuracy(y_true, y_pred):

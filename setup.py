@@ -20,8 +20,8 @@ setup(
     },
     install_requires=open("requirements.txt").read().split(),
     extras_require={
-        'tf_cpu': ['tensorflow>=1.6.0'],
-        'tf_gpu': ['tensorflow-gpu>=1.6.0'],
+        'tf_cpu': ['tensorflow>=1.13.0,!=1.14.0,!=2.0.0'],
+        'tf_gpu': ['tensorflow-gpu>=1.13.0,!=1.14.0,!=2.0.0'],
     },
     keywords=['OCR', 'page segmentation', 'pixel classifier'],
     data_files=[('', ["requirements.txt"])],

@@ -1,6 +1,7 @@
-from pagesegmentation.lib.dataset import DatasetLoader, Dataset
+from pagesegmentation.lib.dataset import Dataset
 from pagesegmentation.lib.model import model_by_name
-from typing import NamedTuple
+from pagesegmentation.lib.callback import TrainProgressCallback
+from typing import NamedTuple, Optional
 import numpy as np
 import logging
 
@@ -8,16 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 class TrainSettings(NamedTuple):
-    n_iter: int
+    n_epoch: int
     n_classes: int
     l_rate: float
     train_data: Dataset
     validation_data: Dataset
     display: int
-    output: str
+    output_dir: str
     threads: int
-    early_stopping_max_l_rate_drops: int
     data_augmentation: bool
+    early_stopping_max_l_rate_drops: int = 10
+    best_model_name: str = 'best_model'
     n_architecture: str = 'fcn_skip'
     evaluation_data: Dataset = None
     load: str = None
@@ -38,27 +40,32 @@ class Trainer:
                                  foreground_masks=settings.foreground_masks, model=settings.load,
                                  continue_training=settings.continue_training)
 
-        if len(settings.train_data) == 0 and settings.n_iter > 0:
+        if len(settings.train_data) == 0 and settings.n_epoch > 0:
             raise Exception("No training files specified. Maybe set n_iter=0")
 
         if settings.compute_baseline:
             def compute_label_percentage(label):
-                return np.sum([np.sum(d.mask == label) for d in settings.train_data]) \
-                       / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data])
+                return np.sum([np.sum(d.mask == label) for d in settings.train_data.data]) \
+                       / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data.data])
 
-            logging.info("Computing label percentage for {} files.".format(len(settings.train_data)))
+            logging.info("Computing label percentage for {} files.".format(len(settings.train_data.data)))
             label_percentage = [compute_label_percentage(l) for l in range(settings.n_classes)]
             logging.info("Label percentage: {}".format(list(zip(range(settings.n_classes), label_percentage))))
             logging.info("Baseline: {}".format(max(label_percentage)))
 
-    def train(self) -> None:
-        self.train_net.train_dataset(self.settings.train_data, self.settings.validation_data, self.settings.output,
-                                     epochs=self.settings.n_iter, early_stopping=
+    def train(self, callback: Optional[TrainProgressCallback] = None) -> None:
+        if callback:
+            callback.init(self.settings.n_epoch * len(self.settings.train_data.data), self.settings.early_stopping_max_l_rate_drops)
+
+        self.train_net.train_dataset(self.settings.train_data, self.settings.validation_data,
+                                     self.settings.output_dir, self.settings.best_model_name,
+                                     epochs=self.settings.n_epoch, early_stopping=
                                      True if self.settings.early_stopping_max_l_rate_drops != 0 else False,
                                      early_stopping_interval=self.settings.early_stopping_max_l_rate_drops,
                                      tensorboardlogs=self.settings.tensorboard,
                                      augmentation=self.settings.data_augmentation, reduce_lr_on_plateu=
-                                     self.settings.reduce_lr_on_plateu)
+                                     self.settings.reduce_lr_on_plateu,
+                                     callback=callback)
 
     def eval(self) -> None:
         if len(self.settings.evaluation_data) > 0:
@@ -80,13 +87,13 @@ if __name__ == "__main__":
     eval_data = dataset_loader.load_data_from_json(
         ['/home/alexander/Bilder/datenset2/t.json'], "eval")
     settings = TrainSettings(
-        n_iter=100,
+        n_epoch=100,
         n_classes=len(dataset_loader.color_map),
         l_rate=1e-3,
         train_data=train_data,
         validation_data=test_data,
         display=10,
-        output='/home/alexander/Bilder/datenset2/',#'/home/alexander/Bilder/test_datenset/', #'/home/alexander/PycharmProjects/PageContent/pagecontent/demo/'
+        output_dir='/home/alexander/Bilder/datenset2/',#'/home/alexander/Bilder/test_datenset/', #'/home/alexander/PycharmProjects/PageContent/pagecontent/demo/'
         threads=8,
         foreground_masks=False,
         data_augmentation=True,

@@ -5,6 +5,42 @@ import io
 import os
 
 
+class TrainProgressCallback(tf.keras.callbacks.Callback):
+    def init(self, total_iters, early_stopping_iters):
+        pass
+
+    def update_loss(self, batch: int, loss: float, acc: float):
+        pass
+
+    def next_best(self, epoch, acc, n_best):
+        pass
+
+
+class TrainProgressCallbackWrapper(tf.keras.callbacks.Callback):
+    def __init__(self,
+                 n_iters_per_epoch: int,
+                 train_callback: TrainProgressCallback,
+                 early_stopping_callback=None):
+        super().__init__()
+        self.train_callback = train_callback
+        self.early_stopping_callback = early_stopping_callback
+        self.n_iters_per_epoch = n_iters_per_epoch
+        self.epoch = 0
+        self.iter = 0
+
+    def on_batch_end(self, batch, logs=None):
+        self.iter = batch + self.epoch * self.n_iters_per_epoch
+        self.train_callback.update_loss(self.iter,
+                                        logs.get('loss'),
+                                        logs.get('accuracy'),
+                                        )
+
+    def on_epoch_end(self, epoch, logs=None):
+        self.epoch = epoch + 1
+        if self.early_stopping_callback:
+            self.train_callback.next_best(self.iter, self.early_stopping_callback.best, self.early_stopping_callback.wait)
+
+
 def make_image_tensor(tensor):
     """
     Convert an numpy representation image to Image protobuf.

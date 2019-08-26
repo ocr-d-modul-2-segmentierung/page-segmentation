@@ -23,11 +23,10 @@ class PredictSettings:
     n_classes: int = -1  # if mode == meta this is not required
     network: str = None
     output: str = None
-    mode: str = 'meta'  # meta, deploy or test
     high_res_output: bool = False
     color_map: dict = None
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
-    n_architecture: str = 'default'
+    n_architecture: str = 'default'  # Do not change
 
 
 class Predictor:
@@ -37,7 +36,7 @@ class Predictor:
 
         if not network:
             self.network = Network("test", model_by_name(self.settings.n_architecture),
-                                   n_classes=len(self.settings.color_map)
+                                   n_classes=self.settings.n_classes if not self.settings.color_map else len(self.settings.color_map)
                                    , model=os.path.abspath(self.settings.network))
         if settings.output:
             output_dir = settings.output
