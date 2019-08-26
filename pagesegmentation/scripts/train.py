@@ -38,12 +38,12 @@ def main():
                         help="Data used for early stopping"
                         )
     parser.add_argument("--eval", type=str, nargs="*", default=[])
-    parser.add_argument("--display", type=int, default=100,
-                        help="Display training progress each display iterations.")
     parser.add_argument("--foreground_masks", default=False, action="store_true",
                         help="keep only mask parts that are foreground in binary image")
     parser.add_argument("--tensorboard", type=str2bool, default=False,
-                        help="Generate tenlogs for use in tensorboard")
+                        help="Generate tensorboard logs")
+    parser.add_argument("--reduce_lr_on_plateu", type=str2bool, default=True,
+                        help="Reducing LR when on plateau")
     parser.add_argument("--color_map", type=str, required=True,
                         help="color_map to load")
     args = parser.parse_args()
@@ -83,6 +83,7 @@ def main():
         foreground_masks=args.foreground_masks,
         data_augmentation=args.data_augmentation,
         tensorboard=args.tensorboard,
+        reduce_lr_on_plateu=args.reduce_lr_on_plateu,
     )
     trainer = Trainer(settings)
     trainer.train()

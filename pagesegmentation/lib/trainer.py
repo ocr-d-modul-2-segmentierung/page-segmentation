@@ -25,6 +25,7 @@ class TrainSettings(NamedTuple):
     compute_baseline: bool = False
     foreground_masks: bool = False
     tensorboard: bool = False
+    reduce_lr_on_plateu = True
 
 
 class Trainer:
@@ -56,7 +57,8 @@ class Trainer:
                                      True if self.settings.early_stopping_max_l_rate_drops != 0 else False,
                                      early_stopping_interval=self.settings.early_stopping_max_l_rate_drops,
                                      tensorboardlogs=self.settings.tensorboard,
-                                     augmentation=self.settings.data_augmentation)
+                                     augmentation=self.settings.data_augmentation, reduce_lr_on_plateu=
+                                     self.settings.reduce_lr_on_plateu)
 
     def eval(self) -> None:
         if len(self.settings.evaluation_data) > 0:
@@ -68,15 +70,15 @@ class Trainer:
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
     from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
-    image_map = load_image_map_from_file('/home/alexander/Bilder/test_datenset/map.json/image_map.json')
+    image_map = load_image_map_from_file('/home/alexander/Bilder/datenset2/image_map.json')
     dataset_loader = DatasetLoader(6, color_map=image_map)
     print(dataset_loader.color_map)
     train_data = dataset_loader.load_data_from_json(
-        ['/home/alexander/Bilder/test_datenset/t.json'], "train")
+        ['/home/alexander/Bilder/datenset2/t.json'], "train")
     test_data = dataset_loader.load_data_from_json(
-        ['/home/alexander/Bilder/test_datenset/t.json'], "test")
+        ['/home/alexander/Bilder/datenset2/t.json'], "test")
     eval_data = dataset_loader.load_data_from_json(
-        ['/home/alexander/Bilder/test_datenset/t.json'], "eval")
+        ['/home/alexander/Bilder/datenset2/t.json'], "eval")
     settings = TrainSettings(
         n_iter=100,
         n_classes=len(dataset_loader.color_map),
@@ -84,14 +86,14 @@ if __name__ == "__main__":
         train_data=train_data,
         validation_data=test_data,
         display=10,
-        output='/home/alexander/Bilder/test_datenset/',
+        output='/home/alexander/Bilder/datenset2/',#'/home/alexander/Bilder/test_datenset/', #'/home/alexander/PycharmProjects/PageContent/pagecontent/demo/'
         threads=8,
         foreground_masks=False,
         data_augmentation=True,
         tensorboard=True,
         n_architecture='mobile_net',
         early_stopping_max_l_rate_drops=5,
-        load='/home/alexander/Bilder/test_datenset/best_model.hdf5'
+        load=None#'/home/alexander/Bilder/test_datenset/best_model.hdf5'
     )
     trainer = Trainer(settings)
     trainer.train()

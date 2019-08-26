@@ -128,7 +128,7 @@ class Network:
 
     def train_dataset(self, train_data: Dataset, test__data: Dataset, output, epochs: int = 100,
                       early_stopping: bool = True, early_stopping_interval: int = 5, tensorboardlogs: bool = True,
-                      augmentation: bool = False,):
+                      augmentation: bool = False, reduce_lr_on_plateu=False):
         callbacks = []
         train_gen = self.create_dataset_inputs(train_data, augmentation)
         test_gen = self.create_dataset_inputs(test__data, data_augmentation=False)
@@ -173,6 +173,14 @@ class Network:
                                                              write_images=False)
                 callbacks.append(diagnose_cb)
                 callbacks.append(tensorboard)
+            if reduce_lr_on_plateu:
+                redurce_lr_plateau = tf.keras.callbacks.ReduceLROnPlateau(
+                    monitor='val_loss',
+                    factor=0.5,
+                    patience=early_stopping_interval / 2,
+                    min_lr=0.000001,
+                    verbose=1)
+                callbacks.append(redurce_lr_plateau)
 
         fg = self.model.fit(train_gen,
                             epochs=epochs,
