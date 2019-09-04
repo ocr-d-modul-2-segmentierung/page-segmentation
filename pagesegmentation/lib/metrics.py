@@ -68,11 +68,11 @@ def jacard_coef(y_true, y_pred):
     intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
     sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     jac = (intersection + 100) / (sum_ - intersection + 100)
-    return tf.reduce_mean(jac)
+    return tf.reduce_mean(jac, axis=0)
 
 
 def jacard_coef_loss(y_true, y_pred):
-    return (1 - jacard_coef(y_true, y_pred)) * 100
+    return -tf.math.log(jacard_coef(y_true, y_pred))
 
 
 def dice_coef(y_true, y_pred):
@@ -84,8 +84,8 @@ def dice_coef(y_true, y_pred):
     intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
     sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     dice = (2.0 * intersection + 100) / (sum_ + 100)
-    return tf.reduce_mean(dice)
+    return tf.reduce_mean(dice, axis=0)
 
 
 def dice_coef_loss(y_true, y_pred):
-    return (1 - dice_coef(y_true, y_pred)) * 100
+    return -tf.math.log(dice_coef(y_true, y_pred))
