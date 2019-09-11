@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from typing import Optional
 from pagesegmentation.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
-
+from pagesegmentation.lib.trainer import TrainSettings, AugmentationSettings
 from .dataset import Dataset, SingleData
 import os
 import logging
@@ -13,13 +13,21 @@ logger = logging.getLogger(__name__)
 class Network:
     def __init__(self,
                  type: str,
-                 model_constructor,
+
                  n_classes: int,
+                 model_constructor=None,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
                  foreground_masks: bool = False,
                  model: str = None,
                  continue_training: bool = False,
+                 input_image_dimension: int = 1,
+                 optimizer = None,
+                 optimizer_norm_clipping: bool = True,
+                 optimizer_norm_clip_value: float = 1.0,
+                 optimizer_clipping=False,
+                 optimizer_clip_value=1,
+                 loss_func=None
                  ):
         """
         :param model_constructor: function that takes the input layer and number of classes and creates the model
@@ -36,7 +44,7 @@ class Network:
         self.type = type
         self.has_binary = has_binary
         self.foreground_masks = foreground_masks
-        self.input = tf.keras.layers.Input((None, None, 1))
+        self.input = tf.keras.layers.Input((None, None, input_image_dimension))
         self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
         model = model if not model or '.' in model else model + '.h5'
@@ -51,31 +59,40 @@ class Network:
                         ])
 
         from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
-            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss
-        if model and continue_training:
+            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical
+        if model and continue_training or model and self.type == 'Predict':
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
                                                                            'fgpa': fgpa, 'fgpl': fgpl,
                                                                            'dice_coef': dice_coef,
                                                                            'jacard_coef': jacard_coef,
                                                                            'dice_coef_loss': dice_coef_loss,
-                                                                           'jacard_coef_loss': jacard_coef_loss})
+                                                                           'jacard_coef_loss': jacard_coef_loss,
+                                                                           'dice_and_categorical': dice_and_categorical,
+                                                                           'categorical_hinge': categorical_hinge})
         else:
             self.model = model_constructor([self.input, self.binary], n_classes)
-            optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-            self.model.compile(optimizer=optimizer, loss=loss(n_classes), metrics=[accuracy, fgpa(self.binary),
+            optimizer = optimizer.value
+            _optimizer = None
+            if optimizer_norm_clipping and optimizer_clipping:
+                _optimizer = optimizer(lr=l_rate, clipnorm=optimizer_norm_clip_value,
+                                                     clipvalue=optimizer_clip_value)
+            else:
+                if optimizer_norm_clipping:
+                    _optimizer = optimizer(lr=l_rate, clipnorm=optimizer_norm_clip_value)
+                elif optimizer_clipping:
+                    _optimizer = optimizer(lr=l_rate, clipvalue=optimizer_clip_value)
+                else:
+                    _optimizer = optimizer(lr=l_rate)
+
+            self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, fgpa(self.binary),
                                                                         jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
 
-    def create_dataset_inputs(self, train_data, data_augmentation=True):
+    def create_dataset_inputs(self, train_data, data_augmentation=True,
+                              data_augmentation_settings: AugmentationSettings = AugmentationSettings()):
         def gray_to_rgb(img):
             return np.repeat(img, 3, 2)
-
-        def preprocessing(array):
-            frac, integ = np.modf(array)
-            mask = (frac > 0) & (frac < 0.5)
-            array[mask] = 0
-            return np.round(array)
 
         while True:
             for data_idx, d in enumerate(train_data):
@@ -88,36 +105,29 @@ class Network:
                     m[b != 1] = 0
                 if self.type == 'train' and data_augmentation:
                     from pagesegmentation.lib.data_generator import ImageDataGeneratorCustom
-                    image_gen = ImageDataGeneratorCustom(rotation_range=2.5,
-                                                         width_shift_range=0.025,
-                                                         height_shift_range=0.025,
-                                                         shear_range=0.00,
-                                                         zoom_range=[0.95, 1.05],
-                                                         horizontal_flip=False,
-                                                         vertical_flip=False,
+                    image_gen = ImageDataGeneratorCustom(**data_augmentation_settings._asdict(),
                                                          fill_mode='nearest',
                                                          data_format='channels_last',
-                                                         brightness_range=[0.95, 1.05],
                                                          interpolation_order=1)
 
-                    binary_gen = ImageDataGeneratorCustom(rotation_range=2.5,
-                                                          width_shift_range=0.025,
-                                                          height_shift_range=0.025,
-                                                          shear_range=0.00,
-                                                          zoom_range=[0.95, 1.05],
-                                                          horizontal_flip=False,
-                                                          vertical_flip=False,
+                    binary_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
+                                                          width_shift_range=data_augmentation_settings.width_shift_range,
+                                                          height_shift_range=data_augmentation_settings.height_shift_range,
+                                                          shear_range=data_augmentation_settings.shear_range,
+                                                          zoom_range=data_augmentation_settings.zoom_range,
+                                                          horizontal_flip=data_augmentation_settings.horizontal_flip,
+                                                          vertical_flip=data_augmentation_settings.vertical_flip,
                                                           fill_mode='nearest',
                                                           data_format='channels_last',
                                                           interpolation_order=0)
 
-                    mask_gen = ImageDataGeneratorCustom(rotation_range=2.5,
-                                                        width_shift_range=0.025,
-                                                        height_shift_range=0.025,
-                                                        shear_range=0.00,
-                                                        zoom_range=[0.95, 1.05],
-                                                        horizontal_flip=False,
-                                                        vertical_flip=False,
+                    mask_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
+                                                        width_shift_range=data_augmentation_settings.width_shift_range,
+                                                        height_shift_range=data_augmentation_settings.height_shift_range,
+                                                        shear_range=data_augmentation_settings.shear_range,
+                                                        zoom_range=data_augmentation_settings.zoom_range,
+                                                        horizontal_flip=data_augmentation_settings.horizontal_flip,
+                                                        vertical_flip=data_augmentation_settings.vertical_flip,
                                                         fill_mode='nearest',
                                                         data_format='channels_last',
                                                         interpolation_order=0,
@@ -137,51 +147,50 @@ class Network:
                            np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
                           np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
 
-    def train_dataset(self, train_data: Dataset, test_data: Dataset,
-                      output_dir: str, best_model_name: str,
-                      epochs: int = 100,
-                      early_stopping: bool = True, early_stopping_interval: int = 5, tensorboardlogs: bool = True,
-                      augmentation: bool = False, reduce_lr_on_plateu=False,
+    def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
+        logger.info(self.model.summary)
+
         import os
         callbacks = []
-        train_gen = self.create_dataset_inputs(train_data, augmentation)
-        test_gen = self.create_dataset_inputs(test_data, data_augmentation=False)
-        logger.info(self.model.summary)
-        checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(output_dir, best_model_name + '.h5'),
-                                                        monitor='val_accuracy',
+        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation)
+        test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
+                                                                     setting.model_affix),
+                                                        monitor=setting.monitor.value,
                                                         verbose=1,
-                                                        save_best_only=True,
-                                                        save_weights_only=True)
+                                                        save_best_only=setting.save_best_model_only,
+                                                        save_weights_only=setting.save_weights_only)
         callbacks.append(checkpoint)
 
-        if early_stopping:
-            early_stop_cb = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy',
-                                                             patience=early_stopping_interval,
-                                                             min_delta=0.0005,
+        if setting.early_stopping_max_l_rate_drops != 0:
+            early_stop_cb = tf.keras.callbacks.EarlyStopping(monitor=setting.monitor.value,
+                                                             patience=setting.early_stopping_max_l_rate_drops,
                                                              verbose=1, mode='auto',
-                                                             restore_best_weights=True)
+                                                             restore_best_weights=
+                                                             setting.early_stopping_restore_best_weights,
+                                                             min_delta=setting.early_stopping_min_delta)
             callbacks.append(early_stop_cb)
         else:
             early_stop_cb = None
 
-        if tensorboardlogs:
+        if setting.tensorboard:
             from pagesegmentation.lib.callback import ModelDiagnoser
             import pathlib
             import datetime
             now = datetime.datetime.today()
             output = os.path.join(
-                output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
+                setting.output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
             pathlib.Path(output).mkdir(parents=True,
                                        exist_ok=True)
-            callback_gen = self.create_dataset_inputs(test_data,
+            callback_gen = self.create_dataset_inputs(setting.validation_data,
                                                       data_augmentation=False)
 
             diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
                                          1,  # batch_size
-                                         len(test_data),  # num_samples
+                                         len(setting.validation_data),  # num_samples
                                          output,  # output_dir
-                                         test_data.color_map)  # color_map
+                                         setting.validation_data.color_map)  # color_map
 
             tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
                                                          histogram_freq=1,
@@ -191,28 +200,28 @@ class Network:
             callbacks.append(diagnose_cb)
             callbacks.append(tensorboard)
 
-        if reduce_lr_on_plateu:
+        if setting.reduce_lr_on_plateau:
             redurce_lr_plateau = tf.keras.callbacks.ReduceLROnPlateau(
-                monitor='val_loss',
-                factor=0.5,
-                patience=early_stopping_interval / 2,
-                min_lr=0.000001,
+                monitor=setting.monitor.value,
+                factor=setting.reduce_lr_plateau_factor,
+                patience=setting.early_stopping_max_l_rate_drops / 2,
+                min_lr=setting.reduce_lr_min_lr,
                 verbose=1)
             callbacks.append(redurce_lr_plateau)
 
         if callback:
             callbacks.append(TrainProgressCallbackWrapper(
-                len(train_data),
+                len(setting.train_data),
                 callback,
                 early_stop_cb,
             ))
 
         fg = self.model.fit(train_gen,
-                            epochs=epochs,
-                            steps_per_epoch=len(train_data),
+                            epochs=setting.n_epoch,
+                            steps_per_epoch=len(setting.train_data),
                             use_multiprocessing=False,
                             workers=1,
-                            validation_steps=len(test_data),
+                            validation_steps=len(setting.validation_data),
                             validation_data=test_gen,
                             callbacks=callbacks)
 
@@ -229,4 +238,6 @@ class Network:
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)
         return logit, prob, pred
+
+
 

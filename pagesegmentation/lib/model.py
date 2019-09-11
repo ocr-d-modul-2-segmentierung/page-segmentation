@@ -4,24 +4,9 @@ from pagesegmentation.lib.layers import GraytoRgb
 import tensorflow as tf
 import tensorflow.contrib.cudnn_rnn as cudnn_rnn
 from tensorflow.python.framework.ops import Tensor
+import enum
 
 Tensors = Union[Tensor, List[Tensor]]
-
-
-def model(input, n_classes):
-    return model_fcn_skip(input, n_classes)
-
-
-def model_by_name(name: str):
-    return {
-        "fcn_skip": model_fcn_skip,
-        "default": model_fcn_skip,
-        "fcn": model_fcn,
-        "rest_net": rest_net_fcn,
-        "mobile_net": unet_with_mobile_net_encoder,
-        "unet": unet,
-        "ResUNet": ResUNet,
-    }[name]
 
 
 def calculate_padding(input, scaling_factor: int = 32):
@@ -113,12 +98,14 @@ def model_fcn_skip(input: Tensors, n_classes: int):
 def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     input_image = input[0]
     input_binary = input[1]
-    rgb_input = GraytoRgb()(input_image)
-
-    rgb_input = tf.keras.applications.mobilenet_v2.preprocess_input(rgb_input * 255)
+    if input_image.shape != 3:
+        input_image = GraytoRgb()(input_image)
+    # preprocess to default mobile net input
+    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    #input_image = tf.keras.applications.mobilenet_v2.preprocess_input(input_image * 255)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
-    padded = tf.keras.layers.Lambda(pad)([rgb_input, padding])
+    padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
     base_model = tf.keras.applications.MobileNetV2(weights='imagenet', include_top=False, input_tensor=padded)
     # Use the activations of these layers
@@ -173,13 +160,14 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
 def rest_net_fcn(input: Tensors, n_classes:int):
     input_image = input[0]
     input_binary = input[1]
-    input_image = GraytoRgb()(input_image)
-    input_image = tf.keras.applications.resnet50.preprocess_input(input_image * 255)
+    if input_image.shape != 3:
+        input_image = GraytoRgb()(input_image)
+    #input_image = tf.keras.applications.resnet50.preprocess_input(input_image * 255)
+    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
 
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
-    #image_size = tf.keras.backend.int_shape(padded)
     base_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_tensor=padded)
     layer_names = [
         'activation_9',  # 256
@@ -421,6 +409,7 @@ def ResUNet(input: Tensors, n_classes: int):
         return x
 
     f = [16, 32, 64, 128, 256]
+    f = [x // 2 for x in f]
     input_image = input[0]
     input_binary = input[1]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
@@ -455,3 +444,22 @@ def ResUNet(input: Tensors, n_classes: int):
 
     model = tf.keras.models.Model(input, outputs)
     return model
+
+
+class Architecture(enum.Enum):
+    FCN_SKIP: str = model_fcn_skip
+    FCN: str = model_fcn
+    REST_NET: str = rest_net_fcn
+    RESUNET: str = ResUNet
+    MOBILE_NET: str = unet_with_mobile_net_encoder
+    UNET: str = unet
+
+
+class Optimizers(enum.Enum):
+    ADAM = tf.keras.optimizers.Adam
+    ADAMAX = tf.keras.optimizers.Adamax
+    ADADELTA = tf.keras.optimizers.Adadelta
+    ADAGRAD = tf.keras.optimizers.Adagrad
+    RMSPROP = tf.keras.optimizers.RMSprop
+    SGD = tf.keras.optimizers.SGD
+    NADAM = tf.keras.optimizers.Nadam

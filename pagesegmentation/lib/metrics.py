@@ -1,14 +1,14 @@
 import tensorflow as tf
+import logging
+import enum
+
+logger = logging.getLogger(__name__)
 
 
-def loss(n_classes: int):
-    def _loss(y_true, y_pred):
-        y_true = tf.keras.backend.reshape(y_true, (-1,))
-        y_pred = tf.keras.backend.reshape(y_pred, (-1, n_classes))
-        return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred,
-                                                                                     from_logits=True))
+def loss(y_true, y_pred):
+    return tf.keras.backend.mean(tf.keras.losses.sparse_categorical_crossentropy(y_true, y_pred, from_logits=True))
 
-    return _loss
+
 
 
 def accuracy(y_true, y_pred):
@@ -89,3 +89,35 @@ def dice_coef(y_true, y_pred):
 
 def dice_coef_loss(y_true, y_pred):
     return -tf.math.log(dice_coef(y_true, y_pred))
+
+
+def categorical_hinge(y_true, y_pred):
+    n_classes = tf.keras.backend.shape(y_pred)[3]
+    y_true = tf.keras.backend.squeeze(y_true, axis=-1)
+    y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
+    pos = tf.keras.backend.sum(y_true * y_pred, axis=-1)
+    neg = tf.keras.backend.max((1.0 - y_true) * y_pred, axis=-1)
+    return tf.keras.backend.mean(tf.keras.backend.maximum(0.0, neg - pos + 1), axis=-1)
+
+
+def dice_and_categorical(y_true, y_pred, alpha=1):
+    assert 0 <= alpha <= 1
+    return (alpha * dice_coef_loss(y_true, y_pred) + (1 - alpha) * loss(y_true, y_pred)) / 2
+
+
+class Loss(enum.Enum):
+    CATEGORICAL_CROSSENTROPY = loss
+    JACCARD_LOSS = jacard_coef_loss
+    DICE_LOSS = dice_coef_loss
+    CATEGORICAL_HINGE = categorical_hinge
+    DICE_AND_CROSSENTROPY = dice_and_categorical
+
+
+class Monitor(enum.Enum):
+    VAL_LOSS = 'val_loss'
+    VAL_ACCURACY = 'val_accuracy'
+    ACCURACY = 'accuracy'
+    LOSS = 'loss'
+    DICE_COEF = 'dice_coef'
+    JACRAD_COEF = 'jacard_coef'
+    FGPA = 'fgpa'
