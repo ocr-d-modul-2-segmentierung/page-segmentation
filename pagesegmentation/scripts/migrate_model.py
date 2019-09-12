@@ -28,9 +28,9 @@ def migrate_model(path_to_meta, n_classes, l_rate, output_path):
         input_binary = tf.keras.layers.Input((None, None, 1))
 
         from pagesegmentation.lib.model import model_fcn_skip
-        model = model_fcn_skip([input_image, input_binary], n_classes)
+        model = model_fcn_skip([input_image], n_classes)
         optimizer = tf.keras.optimizers.Adam(lr=l_rate)
-        model.compile(optimizer=optimizer, loss=loss(n_classes), metrics=[accuracy, fgpa(input_binary)])
+        model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])
         keys = list(model_vars.keys())
         counter = 0
         for l in model.layers:
