@@ -46,7 +46,6 @@ def crop(input_tensors):
 
 def model_fcn_skip(input: Tensors, n_classes: int):
     input_image = input[0]
-    input_binary = input[1]
 
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -90,14 +89,13 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     # prediction
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
 
-    model_k = tf.keras.models.Model(inputs=[input_image, input_binary], outputs=logits)
+    model_k = tf.keras.models.Model(inputs=input, outputs=logits)
 
     return model_k
 
 
 def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     input_image = input[0]
-    input_binary = input[1]
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     # preprocess to default mobile net input
@@ -157,9 +155,8 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     return tf.keras.Model(inputs=input, outputs=x)
 
 
-def rest_net_fcn(input: Tensors, n_classes:int):
+def res_net_fcn(input: Tensors, n_classes:int):
     input_image = input[0]
-    input_binary = input[1]
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     #input_image = tf.keras.applications.resnet50.preprocess_input(input_image * 255)
@@ -254,7 +251,6 @@ def rest_net_fcn(input: Tensors, n_classes:int):
 
 def unet(input: Tensors, n_classes:int):
     input_image = input[0]
-    input_binary = input[1]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
@@ -303,16 +299,14 @@ def unet(input: Tensors, n_classes:int):
 
     logits = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
 
-    model = tf.keras.models.Model(inputs=[input_image, input_binary], outputs=logits)
+    model = tf.keras.models.Model(inputs=input, outputs=logits)
 
     return model
 
 
 def model_fcn(input: Tensors, n_classes: int):
-
     # encoder
     input_image = input[0]
-    input_binary = input[1]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
     conv1 = tf.keras.layers.Conv2D(20, (5, 5), padding="same", activation=tf.nn.relu)(padded)
@@ -336,43 +330,12 @@ def model_fcn(input: Tensors, n_classes: int):
     # prediction
     #upscaled = tf.image.resize_images(deconv5, tf.shape(input)[1:3])
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
-    model = tf.keras.models.Model(inputs=[input_image, input_binary], outputs=logits)
+    model = tf.keras.models.Model(inputs=input, outputs=logits)
 
     return model
 
 
-def get_lstm_cell(num_hidden, reuse_variables=False):
-    return cudnn_rnn.CudnnCompatibleLSTMCell(num_hidden, reuse=reuse_variables)
-
-
-def model_2dlstm(input: Tensors, n_classes: int) -> Tuple[Tensor, Tensor, Tensor]:
-    # input = tf.image.resize_bilinear(input, size)
-
-    # encoder
-    conv1 = tf.keras.layers.Conv2D(16, (5, 5), padding="same", activation=tf.nn.relu)(input)
-    pool1 = tf.keras.layers.MaxPooling2D((2, 2), (2, 2), padding="same")(conv1)
-    conv2 = tf.keras.layers.Conv2D(32, (5, 5), padding="same", activation=tf.nn.relu)(pool1)
-    pool2 = tf.keras.layers.MaxPooling2D(conv2, (2, 2), (2, 2), padding="same")
-    conv3 = tf.keras.layers.Conv2D(pool2, 64, (5, 5), padding="same", activation=tf.nn.relu)
-    pool3 = tf.keras.layers.MaxPooling2D(conv3, (2, 2), (2, 2), padding="same")
-
-    with tf.variable_scope("h"):
-        rnn_out = horizontal_standard_lstm(rnn_size=64, input_data=pool3)
-    with tf.variable_scope("w"):
-        rnn_out = horizontal_standard_lstm(rnn_size=64, input_data=tf.transpose(rnn_out, [0, 2, 1, 3]))
-
-    # decoder
-    upscaled = tf.image.resize_images(rnn_out, tf.shape(input)[1:3])
-
-    # prediction
-    logits: Tensor = tf.layers.conv2d(upscaled, n_classes, (1, 1), (1, 1), name="logits")
-    probs: Tensor = tf.nn.softmax(logits, -1, name="probabilities")
-    prediction: Tensor = tf.argmax(logits, axis=-1, name="prediction")
-
-    return prediction, logits, probs
-
-
-def ResUNet(input: Tensors, n_classes: int):
+def res_unet(input: Tensors, n_classes: int):
     def upsample_concat_block(x, xskip):
         u = tf.keras.layers.UpSampling2D((2, 2))(x)
         c = tf.keras.layers.Concatenate()([u, xskip])
@@ -411,7 +374,6 @@ def ResUNet(input: Tensors, n_classes: int):
     f = [16, 32, 64, 128, 256]
     f = [x // 2 for x in f]
     input_image = input[0]
-    input_binary = input[1]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
     ## Encoder
@@ -447,19 +409,43 @@ def ResUNet(input: Tensors, n_classes: int):
 
 
 class Architecture(enum.Enum):
-    FCN_SKIP: str = model_fcn_skip
-    FCN: str = model_fcn
-    REST_NET: str = rest_net_fcn
-    RESUNET: str = ResUNet
-    MOBILE_NET: str = unet_with_mobile_net_encoder
-    UNET: str = unet
+    FCN_SKIP = 'fcn_skip'
+    FCN = 'fcn'
+    RES_NET = 'res_net'
+    RES_UNET = 'res_unet'
+    MOBILE_NET = 'mobile_net'
+    UNET = 'unet'
+
+    def __call__(self, *args, **kwargs):
+        return self.model()
+
+    def model(self):
+        return {
+            Architecture.FCN_SKIP: model_fcn_skip,
+            Architecture.FCN: model_fcn,
+            Architecture.RES_NET: res_net_fcn,
+            Architecture.RES_UNET: res_unet,
+            Architecture.MOBILE_NET: unet_with_mobile_net_encoder,
+            Architecture.UNET: unet,
+        }[self]
 
 
 class Optimizers(enum.Enum):
-    ADAM = tf.keras.optimizers.Adam
-    ADAMAX = tf.keras.optimizers.Adamax
-    ADADELTA = tf.keras.optimizers.Adadelta
-    ADAGRAD = tf.keras.optimizers.Adagrad
-    RMSPROP = tf.keras.optimizers.RMSprop
-    SGD = tf.keras.optimizers.SGD
-    NADAM = tf.keras.optimizers.Nadam
+    ADAM = 'adam'
+    ADAMAX = 'adamax'
+    ADADELTA = 'adadelta'
+    ADAGRAD = 'adagrad'
+    RMSPROP = 'rmsprop'
+    SGD = 'sgd'
+    NADAM = 'nadam'
+
+    def __call__(self, *args, **kwargs):
+        return {
+            Optimizers.ADAM: tf.keras.optimizers.Adam,
+            Optimizers.ADAMAX: tf.keras.optimizers.Adamax,
+            Optimizers.ADADELTA: tf.keras.optimizers.Adadelta,
+            Optimizers.ADAGRAD: tf.keras.optimizers.Adagrad,
+            Optimizers.RMSPROP: tf.keras.optimizers.RMSprop,
+            Optimizers.SGD: tf.keras.optimizers.SGD,
+            Optimizers.NADAM: tf.keras.optimizers.Nadam,
+        }[self]
