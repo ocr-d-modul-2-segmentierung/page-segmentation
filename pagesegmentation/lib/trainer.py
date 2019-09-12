@@ -135,8 +135,8 @@ if __name__ == "__main__":
         output_dir=dataset_dir,
         threads=8,
         foreground_masks=False,
-        data_augmentation=True,
-        tensorboard=True,
+        data_augmentation=False,
+        tensorboard=False,
         early_stopping_max_l_rate_drops=5,
         load=None#os.path.join(dataset_dir, 'best_model.h5')
     )

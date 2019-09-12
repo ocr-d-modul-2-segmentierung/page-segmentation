@@ -15,7 +15,7 @@ class Network:
     def __init__(self,
                  type: str,
 
-                 n_classes: int,
+                 n_classes: int = -1,
                  model_constructor: Architecture = None,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
