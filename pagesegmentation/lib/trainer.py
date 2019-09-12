@@ -42,7 +42,7 @@ class TrainSettings(NamedTuple):
     reduce_lr_min_lr: float = 0.000001
 
     model_name: str = 'model'
-    model_affix: str = '.h5'
+    model_suffix: str = '.h5'
     save_best_model_only: bool = True
     save_weights_only: bool = False
 

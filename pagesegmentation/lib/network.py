@@ -14,7 +14,7 @@ class Network:
     def __init__(self,
                  type: str,
 
-                 n_classes: int,
+                 n_classes: int = 2,
                  model_constructor=None,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
@@ -62,7 +62,8 @@ class Network:
             fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical
         if model and continue_training or model and self.type == 'Predict':
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
-                                                                           'fgpa': fgpa, 'fgpl': fgpl,
+                                                                           'fgpa_accuracy': fgpa(self.binary),
+                                                                           'fgpa_loss': fgpl,
                                                                            'dice_coef': dice_coef,
                                                                            'jacard_coef': jacard_coef,
                                                                            'dice_coef_loss': dice_coef_loss,
@@ -156,7 +157,7 @@ class Network:
         train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation)
         test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
-                                                                     setting.model_affix),
+                                                                     setting.model_suffix),
                                                         monitor=setting.monitor.value,
                                                         verbose=1,
                                                         save_best_only=setting.save_best_model_only,

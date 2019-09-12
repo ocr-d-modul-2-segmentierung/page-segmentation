@@ -7,8 +7,8 @@ from skimage.transform import resize
 from dataclasses import dataclass
 from tqdm import tqdm
 
-from .dataset import Dataset, SingleData
-from .network import Network
+from pagesegmentation.lib.dataset import Dataset, SingleData
+from pagesegmentation.lib.network import Network
 
 
 class Prediction(NamedTuple):
@@ -19,11 +19,10 @@ class Prediction(NamedTuple):
 
 @dataclass
 class PredictSettings:
-    n_classes: int = -1  # if mode == meta this is not required
     network: str = None
     output: str = None
     high_res_output: bool = False
-    color_map: dict = None
+    color_map: dict = None # Only needed for generating colored images
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
 
 
@@ -33,9 +32,7 @@ class Predictor:
         self.network = network
 
         if not network:
-            self.network = Network("Predict",
-                                   n_classes=self.settings.n_classes if not self.settings.color_map else len(self.settings.color_map)
-                                   , model=os.path.abspath(self.settings.network))
+            self.network = Network("Predict", model=os.path.abspath(self.settings.network))
         if settings.output:
             output_dir = settings.output
             os.makedirs(os.path.join(output_dir, "overlay"), exist_ok=True)
@@ -88,3 +85,21 @@ class Predictor:
             img_io.imsave(os.path.join(self.settings.output, "color", filename), color_mask)
             img_io.imsave(os.path.join(self.settings.output, "overlay", filename), overlay_mask)
             img_io.imsave(os.path.join(self.settings.output, "inverted", filename), inverted_overlay_mask)
+
+if __name__ == "__main__":
+    from pagesegmentation.lib.dataset import DatasetLoader
+    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+    import os
+    dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'
+    image_map = load_image_map_from_file(os.path.join(dataset_dir, 'image_map.json'))
+    dataset_loader = DatasetLoader(8, color_map=image_map)
+    train_data = dataset_loader.load_data_from_json(
+        [os.path.join(dataset_dir, 't.json')], "train")
+    test_data = dataset_loader.load_data_from_json(
+        [os.path.join(dataset_dir, 't.json')], "test")
+    eval_data = dataset_loader.load_data_from_json(
+        [os.path.join(dataset_dir, 't.json')], "eval")
+    settings = PredictSettings(network='/home/alexander/Dokumente/virutal_stafflines/model.h5')
+    predictor = Predictor(settings)
+    for x in predictor.predict(test_data):
+        print(x)
