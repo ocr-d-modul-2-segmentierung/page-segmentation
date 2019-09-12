@@ -6,6 +6,7 @@ from pagesegmentation.lib.trainer import TrainSettings, AugmentationSettings
 from .dataset import Dataset, SingleData
 import os
 import logging
+from pagesegmentation.lib.model import Optimizers, Architecture
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +16,14 @@ class Network:
                  type: str,
 
                  n_classes: int,
-                 model_constructor=None,
+                 model_constructor: Architecture = None,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
                  foreground_masks: bool = False,
                  model: str = None,
                  continue_training: bool = False,
                  input_image_dimension: int = 1,
-                 optimizer = None,
+                 optimizer: Optimizers = Optimizers.ADAM,
                  optimizer_norm_clipping: bool = True,
                  optimizer_norm_clip_value: float = 1.0,
                  optimizer_clipping=False,
@@ -62,7 +63,6 @@ class Network:
             fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical
         if model and continue_training or model and self.type == 'Predict':
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
-                                                                           'fgpa': fgpa, 'fgpl': fgpl,
                                                                            'dice_coef': dice_coef,
                                                                            'jacard_coef': jacard_coef,
                                                                            'dice_coef_loss': dice_coef_loss,
@@ -70,12 +70,13 @@ class Network:
                                                                            'dice_and_categorical': dice_and_categorical,
                                                                            'categorical_hinge': categorical_hinge})
         else:
-            self.model = model_constructor([self.input, self.binary], n_classes)
-            optimizer = optimizer.value
+            self.model = model_constructor.model()([self.input], n_classes)
+            optimizer = optimizer()
             _optimizer = None
             if optimizer_norm_clipping and optimizer_clipping:
-                _optimizer = optimizer(lr=l_rate, clipnorm=optimizer_norm_clip_value,
-                                                     clipvalue=optimizer_clip_value)
+                _optimizer = optimizer(lr=l_rate,
+                                       clipnorm=optimizer_norm_clip_value,
+                                       clipvalue=optimizer_clip_value)
             else:
                 if optimizer_norm_clipping:
                     _optimizer = optimizer(lr=l_rate, clipnorm=optimizer_norm_clip_value)
@@ -84,8 +85,7 @@ class Network:
                 else:
                     _optimizer = optimizer(lr=l_rate)
 
-            self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, fgpa(self.binary),
-                                                                        jacard_coef, dice_coef])
+            self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, jacard_coef, dice_coef])
             if model:
                 self.model.load_weights(model)
 
