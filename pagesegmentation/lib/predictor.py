@@ -23,6 +23,7 @@ class PredictSettings:
     output: str = None
     high_res_output: bool = False
     color_map: dict = None # Only needed for generating colored images
+    n_classes: int = -1
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
 
 
@@ -32,7 +33,7 @@ class Predictor:
         self.network = network
 
         if not network:
-            self.network = Network("Predict", model=os.path.abspath(self.settings.network))
+            self.network = Network("Predict", n_classes=settings.n_classes, model=os.path.abspath(self.settings.network))
         if settings.output:
             output_dir = settings.output
             os.makedirs(os.path.join(output_dir, "overlay"), exist_ok=True)

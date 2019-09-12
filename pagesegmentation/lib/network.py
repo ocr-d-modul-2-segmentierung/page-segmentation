@@ -16,7 +16,7 @@ class Network:
                  type: str,
 
                  n_classes: int = -1,
-                 model_constructor: Architecture = None,
+                 model_constructor: Architecture = Architecture.FCN_SKIP,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
                  foreground_masks: bool = False,
@@ -61,7 +61,8 @@ class Network:
 
         from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
             fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical
-        if model and continue_training or model and self.type == 'Predict':
+
+        try:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
                                                                            'dice_coef': dice_coef,
                                                                            'jacard_coef': jacard_coef,
@@ -69,7 +70,10 @@ class Network:
                                                                            'jacard_coef_loss': jacard_coef_loss,
                                                                            'dice_and_categorical': dice_and_categorical,
                                                                            'categorical_hinge': categorical_hinge})
-        else:
+        except Exception as e:
+            if model and continue_training:
+                raise e
+
             self.model = model_constructor.model()([self.input], n_classes)
             optimizer = optimizer()
             _optimizer = None
@@ -85,7 +89,9 @@ class Network:
                 else:
                     _optimizer = optimizer(lr=l_rate)
 
-            self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, jacard_coef, dice_coef])
+            if self.type == "train":
+                self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, jacard_coef, dice_coef])
+
             if model:
                 self.model.load_weights(model)
 
