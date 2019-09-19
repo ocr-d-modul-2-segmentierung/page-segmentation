@@ -60,7 +60,9 @@ class Network:
                         ])
 
         from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
-            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical
+            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
+            , categorical_focal_loss
+        from pagesegmentation.lib.layers import GraytoRgb
 
         try:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
@@ -69,7 +71,9 @@ class Network:
                                                                            'dice_coef_loss': dice_coef_loss,
                                                                            'jacard_coef_loss': jacard_coef_loss,
                                                                            'dice_and_categorical': dice_and_categorical,
-                                                                           'categorical_hinge': categorical_hinge})
+                                                                           'categorical_hinge': categorical_hinge,
+                                                                           'categorical_focal_loss':categorical_focal_loss,
+                                                                           'GraytoRgb': GraytoRgb})
         except Exception as e:
             if model and continue_training:
                 raise e
@@ -90,7 +94,7 @@ class Network:
                     _optimizer = optimizer(lr=l_rate)
 
             if self.type == "train":
-                self.model.compile(optimizer=_optimizer, loss=loss_func, metrics=[accuracy, jacard_coef, dice_coef])
+                self.model.compile(optimizer=_optimizer, loss=loss_func(), metrics=[accuracy, jacard_coef, dice_coef])
 
             if model:
                 self.model.load_weights(model)

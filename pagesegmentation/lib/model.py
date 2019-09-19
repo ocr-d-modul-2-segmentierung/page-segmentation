@@ -2,7 +2,6 @@ from typing import Callable, Union, List, Tuple
 from pagesegmentation.lib.layers import GraytoRgb
 
 import tensorflow as tf
-import tensorflow.contrib.cudnn_rnn as cudnn_rnn
 from tensorflow.python.framework.ops import Tensor
 import enum
 
@@ -30,6 +29,8 @@ def pad(input_tensors):
 
 def crop(input_tensors):
     input, padding = input_tensors[0], input_tensors[1]
+    #input = tf.Print(input, [padding])
+    #input = tf.Print(input, [tf.keras.backend.shape(input)])
 
     if input is None:
         return None
@@ -155,100 +156,6 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     return tf.keras.Model(inputs=input, outputs=x)
 
 
-def res_net_fcn(input: Tensors, n_classes:int):
-    input_image = input[0]
-    if input_image.shape != 3:
-        input_image = GraytoRgb()(input_image)
-    #input_image = tf.keras.applications.resnet50.preprocess_input(input_image * 255)
-    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
-
-    padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
-    padded = tf.keras.layers.Lambda(pad)([input_image, padding])
-
-    base_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_tensor=padded)
-    layer_names = [
-        'activation_9',  # 256
-        'activation_21',  # 512
-        'activation_39',  # 1024
-        'activation_48',  #2048
-        'block_16_project',
-    ]
-    '''
-
-    layers = [base_model.get_layer(name).output for name in layer_names]
-
-    # Create the feature extraction model
-    down_stack = tf.keras.Model(inputs=base_model.input, outputs=layers)
-
-    down_stack.trainable = True
-
-    up_stack = [
-        tf.keras.layers.Conv2DTranspose(512, 3, strides=2,
-                                        padding='same', activation=tf.nn.relu),
-        tf.keras.layers.Conv2DTranspose(256, 3, strides=2,
-                                        padding='same', activation=tf.nn.relu),
-        tf.keras.layers.Conv2DTranspose(128, 3, strides=2,
-                                        padding='same', activation=tf.nn.relu),
-        tf.keras.layers.Conv2DTranspose(64, 3, strides=2,
-                                        padding='same', activation=tf.nn.relu)
-    ]
-
-    # Create the feature extraction model
-    down_stack = tf.keras.Model(inputs=base_model.input, outputs=layers)
-    
-    '''
-
-    x = base_model.get_layer('activation_48').output
-    x = tf.keras.layers.Dropout(0.5)(x)
-    base_model.trainable = True
-    # Todo add skip connections
-    x = tf.keras.layers.Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same', activation=tf.nn.relu)(x)
-    x = tf.keras.layers.Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same', activation=tf.nn.relu)(x)
-    x = tf.keras.layers.Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same', activation=tf.nn.relu)(x)
-    x = tf.keras.layers.Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same', activation=tf.nn.relu)(x)
-    x = tf.keras.layers.Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same', activation=tf.nn.relu)(x)
-
-    x = tf.keras.layers.Lambda(crop)([x, padding])
-
-    x = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(x)
-
-    model_k = tf.keras.models.Model(inputs=input, outputs=x)
-
-    '''
-    # allow only some layers to retrain
-    train_layers = ['pred_32',
-                    'pred_32s'
-
-                    'bn5c_branch2c',
-                    'res5c_branch2c',
-                    'bn5c_branch2b',
-                    'res5c_branch2b',
-                    'bn5c_branch2a',
-                    'res5c_branch2a',
-
-                    'bn5b_branch2c',
-                    'res5b_branch2c',
-                    'bn5b_branch2b',
-                    'res5b_branch2b',
-                    'bn5b_branch2a',
-                    'res5b_branch2a',
-
-                    'bn5a_branch2c',
-                    'res5a_branch2c',
-                    'bn5a_branch2b',
-                    'res5a_branch2b',
-                    'bn5a_branch2a',
-                    'res5a_branch2a']
-
-    for l in model_k.layers:
-        if l.name in train_layers:
-            l.trainable = True
-        else:
-            l.trainable = False
-    '''
-    return model_k
-
-
 def unet(input: Tensors, n_classes:int):
     input_image = input[0]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
@@ -372,7 +279,7 @@ def res_unet(input: Tensors, n_classes: int):
         return x
 
     f = [16, 32, 64, 128, 256]
-    f = [x // 2 for x in f]
+    f = [x * 2 for x in f]
     input_image = input[0]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -408,10 +315,74 @@ def res_unet(input: Tensors, n_classes: int):
     return model
 
 
+def res_net_fine_tuning(input: Tensors, n_classes: int):
+
+    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=True):
+        conv = tf.keras.layers.Conv2D(filters, (3, 3),
+                                      padding="same", kernel_initializer="he_normal",
+                                      strides=strides, name=prefix + "_conv")(prevlayer)
+        if batch_nm:
+            conv = tf.keras.layers.BatchNormalization(name=prefix + "_bn")(conv)
+        conv = tf.keras.layers.Activation('relu', name=prefix + "_activation")(conv)
+        return conv
+
+    input_image = input[0]
+    if input_image.shape != 3:
+        input_image = GraytoRgb()(input_image)
+    # preprocess to default keras net input
+    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
+
+    padded = tf.keras.layers.Lambda(pad)([input_image, padding])
+
+    #encoder
+    resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
+
+    resnet_base.summary()
+    for l in resnet_base.layers:
+        l.trainable = True
+
+    # skips
+    conv1 = resnet_base.get_layer("activation").output
+    conv2 = resnet_base.get_layer("activation_9").output
+    conv3 = resnet_base.get_layer("activation_21").output
+    conv4 = resnet_base.get_layer("activation_39").output
+    conv5 = resnet_base.get_layer("activation_48").output
+
+    # bridge
+    conv5 = conv_block_simple(conv5, 256, "b_1")
+
+    # decoder
+    up6 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv5), conv4], axis=-1)
+    conv6 = conv_block_simple(up6, 256, "conv6_1")
+    conv6 = conv_block_simple(conv6, 256, "conv6_2")
+
+    up7 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv6), conv3], axis=-1)
+    conv7 = conv_block_simple(up7, 192, "conv7_1")
+    conv7 = conv_block_simple(conv7, 192, "conv7_2")
+
+    up8 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv7), conv2], axis=-1)
+    conv8 = conv_block_simple(up8, 128, "conv8_1")
+    conv8 = conv_block_simple(conv8, 128, "conv8_2")
+
+    up9 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv8), conv1], axis=-1)
+    conv9 = conv_block_simple(up9, 64, "conv9_1")
+    conv9 = conv_block_simple(conv9, 64, "conv9_2")
+    up10 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv9), padded], axis=-1)
+    conv10 = conv_block_simple(up10, 32, "conv10_1")
+    conv10 = conv_block_simple(conv10, 32, "conv10_2")
+    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv10)
+    out = tf.keras.layers.Lambda(crop)([out, padding])
+
+    model = tf.keras.Model(input, out)
+
+    return model
+
+
 class Architecture(enum.Enum):
     FCN_SKIP = 'fcn_skip'
     FCN = 'fcn'
-    RES_NET = 'res_net'
+    RES_NET = 'image_res_net'
     RES_UNET = 'res_unet'
     MOBILE_NET = 'mobile_net'
     UNET = 'unet'
@@ -423,7 +394,7 @@ class Architecture(enum.Enum):
         return {
             Architecture.FCN_SKIP: model_fcn_skip,
             Architecture.FCN: model_fcn,
-            Architecture.RES_NET: res_net_fcn,
+            Architecture.RES_NET: res_net_fine_tuning,
             Architecture.RES_UNET: res_unet,
             Architecture.MOBILE_NET: unet_with_mobile_net_encoder,
             Architecture.UNET: unet,

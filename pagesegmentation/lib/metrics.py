@@ -103,12 +103,32 @@ def dice_and_categorical(y_true, y_pred, alpha=1):
     return (alpha * dice_coef_loss(y_true, y_pred) + (1 - alpha) * loss(y_true, y_pred)) / 2
 
 
+def categorical_focal_loss(y_true, y_pred, gamma=2.0, alpha=0.25):
+    n_classes = tf.keras.backend.shape(y_pred)[3]
+    y_true = tf.keras.backend.squeeze(y_true, axis=-1)
+    y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
+    y_pred = tf.keras.backend.clip(y_pred, tf.keras.backend.epsilon(), 1.0 - tf.keras.backend.epsilon())
+    loss = - y_true * (alpha * tf.keras.backend.pow((1 - y_pred), gamma) * tf.keras.backend.log(y_pred))
+    return tf.keras.backend.mean(loss) * 100
+
+
 class Loss(enum.Enum):
-    CATEGORICAL_CROSSENTROPY = loss
-    JACCARD_LOSS = jacard_coef_loss
-    DICE_LOSS = dice_coef_loss
-    CATEGORICAL_HINGE = categorical_hinge
-    DICE_AND_CROSSENTROPY = dice_and_categorical
+    CATEGORICAL_CROSSENTROPY = 'categorical_crossentropy'
+    JACCARD_LOSS = 'jaccard'
+    DICE_LOSS = 'dice'
+    CATEGORICAL_HINGE = 'categorical_hinge'
+    CATEGORCAL_FOCAL = 'categorical_focal'
+    DICE_AND_CROSSENTROPY = 'dice_and_crossentropy'
+
+    def __call__(self, *args, **kwargs):
+        return {
+            Loss.CATEGORICAL_CROSSENTROPY: loss,
+            Loss.JACCARD_LOSS: jacard_coef_loss,
+            Loss.DICE_LOSS: dice_coef_loss,
+            Loss.CATEGORICAL_HINGE: categorical_hinge,
+            Loss.CATEGORCAL_FOCAL: categorical_focal_loss,
+            Loss.DICE_AND_CROSSENTROPY: dice_and_categorical,
+        }[self]
 
 
 class Monitor(enum.Enum):
