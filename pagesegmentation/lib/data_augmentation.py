@@ -18,14 +18,23 @@ class DataAugmentor:
         assert iaa.Sequential is not None
         ia.seed(np.random.randint(0, 9999999))
         mask = SegmentationMapOnImage(mask, nb_classes=self.classes, shape=image.shape)
+        augmentor_det = self.augmentor.to_deterministic()
+
         if image.ndim == 2:
             image = np.expand_dims(image, axis=-1)
-            image_aug, segmap_aug = self.augmentor(image=image, segmentation_maps=mask)
-            image_aug = image_aug[:, :, 0]
+            images_aug, segmap_aug = augmentor_det(image=image, segmentation_maps=mask)
+            image_aug = images_aug[:, :, 0]
         else:
-            image_aug, segmap_aug = self.augmentor(image=image, segmentation_maps=mask)
+            binary = np.expand_dims(binary, axis=-1)
+            image_aug, segmap_aug = augmentor_det(image=image, segmentation_maps=mask)
 
-        return image_aug, segmap_aug.get_arr_int()
+        binary = np.expand_dims(binary, axis=-1)
+        bin_aug = augmentor_det(image=binary)
+        bin_aug = bin_aug[:, :, 0]
+        bin_aug[bin_aug > 0] = 1
+        return image_aug, segmap_aug.get_arr_int(), bin_aug
+
+
 
     @staticmethod
     def get_default_augmentor(binary=False):
@@ -83,7 +92,7 @@ class DataAugmentor:
             c = 0
             while True:
                 try:
-                    y, z = next(gen)
+                    y, z, b = next(gen)
                     ax[0][c].imshow(y)
                     ax[1][c].imshow(z)
                     c += 1
@@ -100,7 +109,7 @@ class DataAugmentor:
             r = 0
             while True:
                 try:
-                    y, z = next(gen)
+                    y, z, b = next(gen)
                     ax[r][c].imshow(y)
                     c += 1
                     if c % col == 0:
@@ -116,8 +125,6 @@ class DataAugmentor:
                 except StopIteration:
                     plt.show()
                     break
-
-
 
 
 if __name__ == "__main__":

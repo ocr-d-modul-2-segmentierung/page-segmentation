@@ -95,8 +95,7 @@ class Network:
             if model:
                 self.model.load_weights(model)
 
-    def create_dataset_inputs(self, train_data, data_augmentation=True,
-                              data_augmentation_settings: AugmentationSettings = AugmentationSettings()):
+    def create_dataset_inputs(self, train_data, data_augmentation_settings=None):
         def gray_to_rgb(img):
             return np.repeat(img, 3, 2)
 
@@ -109,49 +108,20 @@ class Network:
                     assert (i.dtype == np.uint8)
                 if self.foreground_masks:
                     m[b != 1] = 0
-                if self.type == 'train' and data_augmentation:
-                    from pagesegmentation.lib.data_generator import ImageDataGeneratorCustom
-                    image_gen = ImageDataGeneratorCustom(**data_augmentation_settings._asdict(),
-                                                         fill_mode='nearest',
-                                                         data_format='channels_last',
-                                                         interpolation_order=1)
-
-                    binary_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
-                                                          width_shift_range=data_augmentation_settings.width_shift_range,
-                                                          height_shift_range=data_augmentation_settings.height_shift_range,
-                                                          shear_range=data_augmentation_settings.shear_range,
-                                                          zoom_range=data_augmentation_settings.zoom_range,
-                                                          horizontal_flip=data_augmentation_settings.horizontal_flip,
-                                                          vertical_flip=data_augmentation_settings.vertical_flip,
-                                                          fill_mode='nearest',
-                                                          data_format='channels_last',
-                                                          interpolation_order=0)
-
-                    mask_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
-                                                        width_shift_range=data_augmentation_settings.width_shift_range,
-                                                        height_shift_range=data_augmentation_settings.height_shift_range,
-                                                        shear_range=data_augmentation_settings.shear_range,
-                                                        zoom_range=data_augmentation_settings.zoom_range,
-                                                        horizontal_flip=data_augmentation_settings.horizontal_flip,
-                                                        vertical_flip=data_augmentation_settings.vertical_flip,
-                                                        fill_mode='nearest',
-                                                        data_format='channels_last',
-                                                        interpolation_order=0,
-                                                        )
-                    seed = np.random.randint(0, 9999999)
-                    i_x = image_gen.flow(np.expand_dims(np.expand_dims(i, axis=0), axis=-1), seed=seed, batch_size=1)
-                    b_x = binary_gen.flow(np.expand_dims(np.expand_dims(b, axis=0), axis=-1), seed=seed, batch_size=1)
-                    m_x = mask_gen.flow(np.expand_dims(np.expand_dims(m, axis=0), axis=-1), seed=seed, batch_size=1)
-
-                    i_n = next(i_x)
-                    b_n = next(b_x)
-                    m_n = next(m_x)
-
-                    yield [i_n / 255.0, b_n], m_n
+                data_augmentation_settings = None
+                data_augmentation_settings = 1
+                if self.type == 'train' and data_augmentation_settings is not None:
+                    from pagesegmentation.lib.data_augmentation import DataAugmentor
+                    data_augmentor = DataAugmentor(DataAugmentor.get_default_augmentor(), self.n_classes)
+                    iterator = data_augmentor.augment_dataset(train_data)
+                    i_n, m_n, b_n = next(iterator)
+                    yield [np.expand_dims(np.expand_dims(i_n / 255.0, axis=0), axis=-1),
+                           np.expand_dims(np.expand_dims(b_n, axis=0), axis=-1)],\
+                           np.expand_dims(np.expand_dims(m_n, axis=0), axis=-1)
                 else:
                     yield [np.expand_dims(np.expand_dims(i / 255.0, axis=0), axis=-1),
                            np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
-                          np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
+                           np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
 
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
@@ -160,7 +130,7 @@ class Network:
         import os
         callbacks = []
         train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation)
-        test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
+        test_gen = self.create_dataset_inputs(setting.validation_data)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
                                                                      setting.model_suffix),
                                                         monitor=setting.monitor.value,
@@ -189,8 +159,7 @@ class Network:
                 setting.output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
             pathlib.Path(output).mkdir(parents=True,
                                        exist_ok=True)
-            callback_gen = self.create_dataset_inputs(setting.validation_data,
-                                                      data_augmentation=False)
+            callback_gen = self.create_dataset_inputs(setting.validation_data)
 
             diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
                                          1,  # batch_size
@@ -234,7 +203,7 @@ class Network:
         return fg
 
     def evaluate_dataset(self, eval_data):
-        eval_gen = self.create_dataset_inputs(eval_data, data_augmentation=False)
+        eval_gen = self.create_dataset_inputs(eval_data)
         self.model.evaluate(eval_gen, batch_size=1, steps=len(eval_data))
 
     def predict_single_data(self, data: SingleData):
