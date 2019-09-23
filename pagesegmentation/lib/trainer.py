@@ -5,7 +5,7 @@ from pagesegmentation.lib.metrics import Loss, Monitor
 from pagesegmentation.lib.model import Architecture, Optimizers
 import numpy as np
 import logging
-
+import tensorflow as tf
 logger = logging.getLogger(__name__)
 
 
