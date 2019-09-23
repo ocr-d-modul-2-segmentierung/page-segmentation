@@ -61,7 +61,6 @@ def main():
     parser.add_argument("--reduce_lr_on_plateau", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--color_map", type=str, default="image_map.json", help=argparse.SUPPRESS)
     parser.add_argument("--gpu_allow_growth", action="store_true", help=argparse.SUPPRESS)
-
     args = parser.parse_args()
 
     def relpaths(basedir: str, files: List[str]) -> List[str]:

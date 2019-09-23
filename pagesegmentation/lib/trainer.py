@@ -6,6 +6,7 @@ from pagesegmentation.lib.model import Architecture, Optimizers
 import numpy as np
 import logging
 import tensorflow as tf
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,7 +81,7 @@ class Trainer:
             tf_backend_allow_growth()
 
         from pagesegmentation.lib.network import Network
-        self.train_net = Network("train",  settings.n_classes, settings.architecture,
+        self.train_net = Network("train", settings.n_classes, settings.architecture,
                                  l_rate=settings.l_rate,
                                  foreground_masks=settings.foreground_masks, model=settings.load,
                                  continue_training=settings.continue_training,
@@ -91,7 +92,7 @@ class Trainer:
                                  optimizer_clipping=settings.optimizer_clipping,
                                  optimizer_clip_value=settings.optimizer_clip_value,
                                  loss_func=settings.loss
-        )
+                                 )
 
         if len(settings.train_data) == 0 and settings.n_epoch > 0:
             raise Exception("No training files specified. Maybe set n_iter=0")
@@ -123,10 +124,12 @@ class Trainer:
             logger.log(self.train_net.evaluate_dataset(self.settings.validation_data))
 
 
+
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
     from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
     import os
+
     dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'
     image_map = load_image_map_from_file(os.path.join(dataset_dir, 'image_map.json'))
     dataset_loader = DatasetLoader(8, color_map=image_map)
