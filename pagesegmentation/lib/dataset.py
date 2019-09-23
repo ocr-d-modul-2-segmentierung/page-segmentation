@@ -11,6 +11,7 @@ from skimage.transform import resize, rescale
 from PIL import Image
 import itertools
 
+
 @dataclass
 class SingleData:
     image: np.ndarray = None
@@ -152,7 +153,7 @@ class DatasetLoader:
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
         bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False) / 255
-        img = 1.0 - resize(img, bin.shape, order=3, preserve_range=True) / 255
+        img = 1.0 - resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True) / 255
         scaled_shape = img.shape
 
         # color
@@ -226,4 +227,3 @@ class DatasetLoader:
 if __name__ == "__main__":
     loader = DatasetLoader(4, color_map={})
     loader.load_test()
-

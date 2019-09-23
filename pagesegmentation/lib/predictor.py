@@ -3,12 +3,11 @@ from typing import NamedTuple, Generator, List, Callable, Optional
 
 import numpy as np
 import skimage.io as img_io
-from skimage.transform import resize
 from dataclasses import dataclass
-from tqdm import tqdm
+from skimage.transform import resize
 
 from pagesegmentation.lib.dataset import Dataset, SingleData
-from pagesegmentation.lib.network import Network
+from pagesegmentation.lib.network import Network, tf_backend_allow_growth
 
 
 class Prediction(NamedTuple):
@@ -22,9 +21,10 @@ class PredictSettings:
     network: str = None
     output: str = None
     high_res_output: bool = False
-    color_map: dict = None # Only needed for generating colored images
+    color_map: dict = None  # Only needed for generating colored images
     n_classes: int = -1
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
+    gpu_allow_growth: bool = False
 
 
 class Predictor:
@@ -32,8 +32,12 @@ class Predictor:
         self.settings = settings
         self.network = network
 
+        if settings.gpu_allow_growth:
+            tf_backend_allow_growth()
+
         if not network:
-            self.network = Network("Predict", n_classes=settings.n_classes, model=os.path.abspath(self.settings.network))
+            self.network = Network("Predict", n_classes=settings.n_classes,
+                                   model=os.path.abspath(self.settings.network))
         if settings.output:
             output_dir = settings.output
             os.makedirs(os.path.join(output_dir, "overlay"), exist_ok=True)
@@ -57,7 +61,7 @@ class Predictor:
             pred = pred[0]
 
         if self.settings.output:
-            from .dataset import label_to_colors
+            from pagesegmentation.lib.dataset import label_to_colors
             if data.output_path:
                 filename = data.output_path
                 dir = os.path.dirname(filename)

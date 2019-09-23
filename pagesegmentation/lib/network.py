@@ -165,6 +165,8 @@ class Network:
         callbacks = []
         train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation)
         test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
+
+        os.makedirs(setting.output_dir, exist_ok=True)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
                                                                      setting.model_suffix),
                                                         monitor=setting.monitor.value,
@@ -173,9 +175,9 @@ class Network:
                                                         save_weights_only=setting.save_weights_only)
         callbacks.append(checkpoint)
 
-        if setting.early_stopping_max_l_rate_drops != 0:
+        if setting.early_stopping_max_performance_drops != 0:
             early_stop_cb = tf.keras.callbacks.EarlyStopping(monitor=setting.monitor.value,
-                                                             patience=setting.early_stopping_max_l_rate_drops,
+                                                             patience=setting.early_stopping_max_performance_drops,
                                                              verbose=1, mode='auto',
                                                              restore_best_weights=
                                                              setting.early_stopping_restore_best_weights,
@@ -214,7 +216,7 @@ class Network:
             redurce_lr_plateau = tf.keras.callbacks.ReduceLROnPlateau(
                 monitor=setting.monitor.value,
                 factor=setting.reduce_lr_plateau_factor,
-                patience=setting.early_stopping_max_l_rate_drops / 2,
+                patience=setting.early_stopping_max_performance_drops / 2,
                 min_lr=setting.reduce_lr_min_lr,
                 verbose=1)
             callbacks.append(redurce_lr_plateau)
@@ -250,4 +252,9 @@ class Network:
         return logit, prob, pred
 
 
-
+def tf_backend_allow_growth():
+    config = tf.ConfigProto(log_device_placement=False)
+    config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+    config.log_device_placement = True  # to log device placement (on which device the operation ran)
+    sess = tf.Session(config=config)
+    tf.keras.backend.set_session(sess)

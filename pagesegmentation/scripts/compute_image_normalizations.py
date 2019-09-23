@@ -76,7 +76,7 @@ def main():
                         help="Image directory to process")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="The output dir for the info files")
-    parser.add_argument("--average_all", action="store_true", default=True,
+    parser.add_argument("--average_all", action="store_true",
                         help="Average height over all images")
     parser.add_argument("--inverse", action="store_false", default=True)
 

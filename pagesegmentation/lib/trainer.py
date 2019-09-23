@@ -33,7 +33,7 @@ class TrainSettings(NamedTuple):
     data_augmentation: bool = False
     data_augmentation_settings: AugmentationSettings = AugmentationSettings()
 
-    early_stopping_max_l_rate_drops: int = 10
+    early_stopping_max_performance_drops: int = 10
     early_stopping_restore_best_weights: bool = True
     early_stopping_min_delta: float = 0.0
 
@@ -65,12 +65,19 @@ class TrainSettings(NamedTuple):
     tensorboard: bool = False
 
     image_dimension: int = 1
+    # use the allow_growth tensorflow setting
+    # set to true, if you get CUDNN_STATUS_INTERNAL_ERROR, see https://github.com/tensorflow/tensorflow/issues/24496
+    gpu_allow_growth: bool = False
 
 
 class Trainer:
     def __init__(self, settings: TrainSettings):
         self.settings = settings
         tf.keras.backend.clear_session()
+
+        if settings.gpu_allow_growth:
+            from pagesegmentation.lib.network import tf_backend_allow_growth
+            tf_backend_allow_growth()
 
         from pagesegmentation.lib.network import Network
         self.train_net = Network("train",  settings.n_classes, settings.architecture,
@@ -102,7 +109,7 @@ class Trainer:
     def train(self, callback: Optional[TrainProgressCallback] = None) -> None:
         if callback:
             callback.init(self.settings.n_epoch * len(self.settings.train_data.data),
-                          self.settings.early_stopping_max_l_rate_drops)
+                          self.settings.early_stopping_max_performance_drops)
 
         self.train_net.train_dataset(setting=self.settings, callback=callback)
 
@@ -111,6 +118,7 @@ class Trainer:
             self.train_net.evaluate_dataset(self.settings.evaluation_data)
         else:
             print(self.train_net.evaluate_dataset(self.settings.validation_data))
+
 
 
 if __name__ == "__main__":

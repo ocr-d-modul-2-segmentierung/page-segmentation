@@ -3,49 +3,59 @@ import json
 from os import path
 from typing import List
 
-import numpy as np
-from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
-from pagesegmentation.lib.dataset import DatasetLoader
+# remove when tensorflow#30559 is merged in 1.14.1
+import warnings
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1', ''):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def main():
     from pagesegmentation.lib.trainer import TrainSettings, Trainer
-    from pagesegmentation.lib.predictor import Predictor, PredictSettings
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--l_rate", type=float, default=1e-4)
-    parser.add_argument("--target_line_height", type=int, default=6,
+    parser.add_argument("-L", "--l-rate", type=float, default=1e-4,
+                        help="set learning rate")
+    parser.add_argument("-H", "--target-line-height", type=int, default=6,
                         help="Scale the data images so that the line height matches this value")
-    parser.add_argument("--output", type=str, required=True)
-    parser.add_argument("--load", type=str, default=None)
-    parser.add_argument("--n_iter", type=int, default=500)
-    parser.add_argument("--early_stopping_max_l_rate_drops", type=int, default=5)
-    parser.add_argument("--prediction_dir", type=str)
-    parser.add_argument("--data_augmentation", default=False, action="store_true",
+    parser.add_argument("-O", "--output", type=str, default="./",
+                        help="target directory for model and logs")
+    parser.add_argument("--load", type=str, default=None,
+                        help="load an existing model and continue training")
+    parser.add_argument("-E", "--n-epoch", type=int, default=100,
+                        help="number of epochs")
+    parser.add_argument("--display", type=int, default=100,
+                        help="number of iterations between displaying status")
+    parser.add_argument("-S", "--early-stopping-max-performance-drops", type=int, default=5,
+                        help="number of iterations without improvements after which to stop early")
+    parser.add_argument("--data-augmentation", action="store_true",
+                        help="Enable data augmentation")
+    parser.add_argument("-s", "--split-file", type=str,
                         help="Load splits from a json file")
-    parser.add_argument("--split_file", type=str,
-                        help="Load splits from a json file")
-    parser.add_argument("--train", type=str, nargs="*", default=[])
-    parser.add_argument("--test", type=str, nargs="*", default=[],
-                        help="Data used for early stopping"
-                        )
+    parser.add_argument("--train", type=str, nargs="*", default=[], help="Dataset for training")
+    parser.add_argument("--test", type=str, nargs="*", default=[], help="Dataset used for early stopping")
     parser.add_argument("--eval", type=str, nargs="*", default=[])
-    parser.add_argument("--foreground_masks", default=False, action="store_true",
+    parser.add_argument("--foreground-masks", action="store_true",
                         help="keep only mask parts that are foreground in binary image")
-    parser.add_argument("--tensorboard", type=str2bool, default=False,
+    parser.add_argument("--tensorboard", action="store_true",
                         help="Generate tensorboard logs")
-    parser.add_argument("--reduce_lr_on_plateu", type=str2bool, default=True,
-                        help="Reducing LR when on plateau")
-    parser.add_argument("--color_map", type=str, required=True,
-                        help="color_map to load")
+    parser.add_argument("--reduce-lr-on-plateau", action="store_true",
+                        help="Reduce learn rate when on plateau")
+    parser.add_argument("--color-map", type=str, default="image_map.json",
+                        help="color map to load")
+    parser.add_argument("--gpu-allow-growth", action="store_true",
+                        help="set allow_growth option for Tensorflow GPU. Use if getting CUDNN_INTERNAL_ERROR")
+    # aliases to support legacy names of options
+    parser.add_argument("--l_rate", type=float, help=argparse.SUPPRESS)
+    parser.add_argument("--target_line_height", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--n_epoch", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--early_stopping_max_performance_drops", type=int, help=argparse.SUPPRESS)
+    parser.add_argument("--data_augmentation", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--split_file", type=str, help=argparse.SUPPRESS)
+    parser.add_argument("--foreground_masks", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--reduce_lr_on_plateau", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--color_map", type=str, default="image_map.json", help=argparse.SUPPRESS)
+    parser.add_argument("--gpu_allow_growth", action="store_true", help=argparse.SUPPRESS)
+
     args = parser.parse_args()
 
     def relpaths(basedir: str, files: List[str]) -> List[str]:
@@ -60,6 +70,10 @@ def main():
             args.test += relpaths(reldir, d["test"])
             args.eval += relpaths(reldir, d["eval"])
 
+    from pagesegmentation.lib.dataset import DatasetLoader
+    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+    from pagesegmentation.lib.metrics import Loss
+
     image_map = load_image_map_from_file(args.color_map)
     dataset_loader = DatasetLoader(args.target_line_height, image_map)
     train_data = dataset_loader.load_data_from_json(args.train, "train")
@@ -69,21 +83,24 @@ def main():
     eval_data = dataset_loader.load_data_from_json(args.eval, "eval")
 
     settings = TrainSettings(
-        n_iter=args.n_iter,
+        n_epoch=args.n_epoch,
         n_classes=len(dataset_loader.color_map),
         l_rate=args.l_rate,
         train_data=train_data,
         validation_data=test_data,
-        evaluation_data= eval_data,
+        evaluation_data=eval_data,
         load=args.load,
+        loss=Loss.CATEGORICAL_CROSSENTROPY,
         display=args.display,
-        output=args.output,
-        early_stopping_max_l_rate_drops=args.early_stopping_max_l_rate_drops,
-        threads=8,
+        output_dir=args.output,
+        early_stopping_max_performance_drops=args.early_stopping_max_performance_drops,
+        threads=6,
+        compute_baseline=True,
         foreground_masks=args.foreground_masks,
         data_augmentation=args.data_augmentation,
         tensorboard=args.tensorboard,
-        reduce_lr_on_plateu=args.reduce_lr_on_plateu,
+        reduce_lr_on_plateau=args.reduce_lr_on_plateau,
+        gpu_allow_growth=args.gpu_allow_growth
     )
     trainer = Trainer(settings)
     trainer.train()

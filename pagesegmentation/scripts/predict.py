@@ -10,8 +10,8 @@ import tqdm
 from pagesegmentation.lib.dataset import DatasetLoader, SingleData
 from pagesegmentation.lib.postprocess import vote_connected_component_class
 from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
-from pagesegmentation.lib.network import Network
 from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+
 
 def glob_all(filenames):
     return [g for f in filenames for g in glob.glob(f)]
@@ -39,8 +39,7 @@ def main():
                         help="classify all pixels of each connected component as most frequent class")
     parser.add_argument("--color_map", type=str, required=True,
                         help="color_map to load")
-    parser.add_argument("--architecture", type=str, default='default',
-                        help="color_map to load")
+    parser.add_argument("--gpu_allow_growth", action="store_true")
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -80,9 +79,9 @@ def main():
                           line_heights,
                           target_line_height=args.target_line_height,
                           model=args.load,
-                          architecture=args.architecture,
                           high_res_output=not args.keep_low_res,
-                          post_processors=post_processors
+                          post_processors=post_processors,
+                          gpu_allow_growth=args.gpu_allow_growth,
                           )
 
     for _, _ in tqdm.tqdm(enumerate(predictions)):
@@ -96,9 +95,9 @@ def predict(output,
             line_heights: Union[List[int], int],
             target_line_height: int,
             model: str,
-            architecture: str,
             high_res_output: bool = True,
-            post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
+            post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None,
+            gpu_allow_growth: bool = False,
             ) -> Generator[Prediction, None, None]:
     dataset_loader = DatasetLoader(target_line_height, prediction=True, color_map=color_map)
 
@@ -116,7 +115,8 @@ def predict(output,
         high_res_output=high_res_output,
         post_process=post_processors,
         color_map=color_map,
-        n_architecture=architecture,
+        n_classes=len(color_map),
+        gpu_allow_growth=gpu_allow_growth,
     )
     predictor = Predictor(settings)
 
