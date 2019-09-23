@@ -70,6 +70,7 @@ class TrainSettings(NamedTuple):
 class Trainer:
     def __init__(self, settings: TrainSettings):
         self.settings = settings
+        tf.keras.backend.clear_session()
 
         from pagesegmentation.lib.network import Network
         self.train_net = Network("train",  settings.n_classes, settings.architecture,
