@@ -317,7 +317,7 @@ def res_unet(input: Tensors, n_classes: int):
 
 def res_net_fine_tuning(input: Tensors, n_classes: int):
 
-    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=True):
+    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
         conv = tf.keras.layers.Conv2D(filters, (3, 3),
                                       padding="same", kernel_initializer="he_normal",
                                       strides=strides, name=prefix + "_conv")(prevlayer)
@@ -338,7 +338,7 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     #encoder
     resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
 
-    resnet_base.summary()
+    #resnet_base.summary()
     for l in resnet_base.layers:
         l.trainable = True
 
