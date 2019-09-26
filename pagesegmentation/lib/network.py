@@ -267,8 +267,8 @@ class Network:
 
 
 def tf_backend_allow_growth():
-    config = tf.compat.v1.ConfigProto(log_device_placement=False)
+    config = tf.ConfigProto(log_device_placement=False)
     config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
     config.log_device_placement = True  # to log device placement (on which device the operation ran)
-    sess = tf.compat.v1.Session(config=config)
-    tf.compat.v1.keras.backend.set_session(sess)
+    sess = tf.Session(config=config)
+    tf.keras.backend.set_session(sess)
