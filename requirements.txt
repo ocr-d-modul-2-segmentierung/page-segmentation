@@ -4,3 +4,4 @@ scikit-image
 tqdm
 opencv-python
 dataclasses
+git+https://github.com/qubvel/segmentation_models
