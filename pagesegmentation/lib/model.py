@@ -443,7 +443,14 @@ class Architecture(enum.Enum):
     RES_UNET = 'res_unet'
     MOBILE_NET = 'mobile_net'
     UNET = 'unet'
+    EFFNETB0 = 'effb0'
     EFFNETB1 = 'effb1'
+    EFFNETB2 = 'effb2'
+    EFFNETB3 = 'effb3'
+    EFFNETB4 = 'effb4'
+    EFFNETB5 = 'effb5'
+    EFFNETB6 = 'effb6'
+    EFFNETB7 = 'effb7'
 
     def __call__(self, *args, **kwargs):
         return self.model()
