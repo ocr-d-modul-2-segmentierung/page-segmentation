@@ -41,6 +41,7 @@ class Network:
         :param model: continue Training
         :param
         """
+        self.architecture = model_constructor.value
         self._data: Dataset = Dataset([], {})
         self.type = type
         self.has_binary = has_binary
@@ -101,6 +102,8 @@ class Network:
 
     def create_dataset_inputs(self, train_data, data_augmentation=True,
                               data_augmentation_settings: AugmentationSettings = AugmentationSettings()):
+        from pagesegmentation.lib.model import PreprocessInput
+        preprocess = PreprocessInput(self.architecture)()
         def gray_to_rgb(img):
             return np.repeat(img, 3, 2)
 
@@ -151,9 +154,9 @@ class Network:
                     b_n = next(b_x)
                     m_n = next(m_x)
 
-                    yield [i_n / 255.0, b_n], m_n
+                    yield [preprocess(i_n), b_n], m_n
                 else:
-                    yield [np.expand_dims(np.expand_dims(i / 255.0, axis=0), axis=-1),
+                    yield [np.expand_dims(np.expand_dims(preprocess(i), axis=0), axis=-1),
                            np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
                           np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
 
@@ -243,7 +246,9 @@ class Network:
 
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
-        logit = self.model.predict([np.expand_dims(np.expand_dims(data.image / 255, axis=0), axis=-1),
+        from pagesegmentation.lib.model import PreprocessInput
+        preprocess = PreprocessInput(self.model.name)()
+        logit = self.model.predict([np.expand_dims(np.expand_dims(preprocess(data.image), axis=0), axis=-1),
                                    np.expand_dims(np.expand_dims(data.binary, axis=0), axis=-1)])[0, :, :, :]
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)

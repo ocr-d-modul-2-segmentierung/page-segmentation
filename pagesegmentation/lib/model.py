@@ -90,7 +90,7 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     # prediction
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
 
-    model_k = tf.keras.models.Model(inputs=input, outputs=logits)
+    model_k = tf.keras.models.Model(inputs=input, outputs=logits, name='fcn_skip')
 
     return model_k
 
@@ -100,7 +100,7 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     # preprocess to default mobile net input
-    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    #input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
     #input_image = tf.keras.applications.mobilenet_v2.preprocess_input(input_image * 255)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
@@ -153,7 +153,7 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     x = tf.keras.layers.Lambda(crop)([x, padding])
     x = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(x)
 
-    return tf.keras.Model(inputs=input, outputs=x)
+    return tf.keras.Model(inputs=input, outputs=x, name='mobile_net')
 
 
 def unet(input: Tensors, n_classes:int):
@@ -206,7 +206,7 @@ def unet(input: Tensors, n_classes:int):
 
     logits = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
 
-    model = tf.keras.models.Model(inputs=input, outputs=logits)
+    model = tf.keras.models.Model(inputs=input, outputs=logits, name='unet')
 
     return model
 
@@ -237,7 +237,7 @@ def model_fcn(input: Tensors, n_classes: int):
     # prediction
     #upscaled = tf.image.resize_images(deconv5, tf.shape(input)[1:3])
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
-    model = tf.keras.models.Model(inputs=input, outputs=logits)
+    model = tf.keras.models.Model(inputs=input, outputs=logits, name='fcn')
 
     return model
 
@@ -311,7 +311,7 @@ def res_unet(input: Tensors, n_classes: int):
 
     outputs = tf.keras.layers.Conv2D(n_classes, (1, 1), padding="valid", name="logits")(d4)
 
-    model = tf.keras.models.Model(input, outputs)
+    model = tf.keras.models.Model(input, outputs, name='res_unet')
     return model
 
 
@@ -330,7 +330,7 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     # preprocess to default keras net input
-    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    # input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -374,9 +374,9 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv10)
     out = tf.keras.layers.Lambda(crop)([out, padding])
 
-    model = tf.keras.Model(input, out)
-
+    model = tf.keras.Model(input, out, name='image_res_net')
     return model
+
 
 def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1):
 
@@ -393,7 +393,7 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     # preprocess to default keras net input
-    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    #input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -432,7 +432,7 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
     out = tf.keras.layers.Lambda(crop)([out, padding])
 
-    model = tf.keras.Model(input, out)
+    model = tf.keras.Model(input, out, name='effb0')
     return model
 
 
@@ -471,6 +471,48 @@ class Architecture(enum.Enum):
             Architecture.EFFNETB5: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB5),
             Architecture.EFFNETB6: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB6),
             Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
+        }[self]
+
+
+def default_preprocess(x):
+    return x / 255.0
+
+
+class PreprocessInput(enum.Enum):
+    FCN_SKIP = 'fcn_skip'
+    FCN = 'fcn'
+    RES_NET = 'image_res_net'
+    RES_UNET = 'res_unet'
+    MOBILE_NET = 'mobile_net'
+    UNET = 'unet'
+    EFFNETB0 = 'effb0'
+    EFFNETB1 = 'effb1'
+    EFFNETB2 = 'effb2'
+    EFFNETB3 = 'effb3'
+    EFFNETB4 = 'effb4'
+    EFFNETB5 = 'effb5'
+    EFFNETB6 = 'effb6'
+    EFFNETB7 = 'effb7'
+
+    def __call__(self, *args, **kwargs):
+        return self.preprocess()
+
+    def preprocess(self):
+        return {
+            PreprocessInput.FCN_SKIP: default_preprocess,
+            PreprocessInput.FCN: default_preprocess,
+            PreprocessInput.RES_NET: tf.keras.applications.resnet50.preprocess_input,
+            PreprocessInput.RES_UNET: default_preprocess,
+            PreprocessInput.MOBILE_NET: tf.keras.applications.mobilenet_v2.preprocess_input,
+            PreprocessInput.UNET: default_preprocess,
+            PreprocessInput.EFFNETB0: efn.preprocess_input,
+            PreprocessInput.EFFNETB1: efn.preprocess_input,
+            PreprocessInput.EFFNETB2: efn.preprocess_input,
+            PreprocessInput.EFFNETB3: efn.preprocess_input,
+            PreprocessInput.EFFNETB4: efn.preprocess_input,
+            PreprocessInput.EFFNETB5: efn.preprocess_input,
+            PreprocessInput.EFFNETB6: efn.preprocess_input,
+            PreprocessInput.EFFNETB7: efn.preprocess_input,
         }[self]
 
 
