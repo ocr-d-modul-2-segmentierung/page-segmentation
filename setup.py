@@ -7,7 +7,7 @@ setup(
     license='GPL-v3.0',
     long_description=open("README.md").read(),
     include_package_data=True,
-    author="Christoph Wick",
+    author="Christoph Wick, Alexander Hartelt",
     author_email="christoph.wick@informatik.uni-wuerzburg.de",
     url="https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git",
     download_url='https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git',

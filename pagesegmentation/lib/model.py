@@ -1,10 +1,10 @@
 from typing import Callable, Union, List, Tuple
 from pagesegmentation.lib.layers import GraytoRgb
-
+from functools import partial
 import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
 import enum
-
+import efficientnet.tfkeras as efn
 Tensors = Union[Tensor, List[Tensor]]
 
 
@@ -378,6 +378,63 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
 
     return model
 
+def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1):
+
+    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
+        conv = tf.keras.layers.Conv2D(filters, (3, 3),
+                                      padding="same", kernel_initializer="he_normal",
+                                      strides=strides, name=prefix + "_conv")(prevlayer)
+        if batch_nm:
+            conv = tf.keras.layers.BatchNormalization(name=prefix + "_bn")(conv)
+        conv = tf.keras.layers.Activation('relu', name=prefix + "_activation")(conv)
+        return conv
+
+    input_image = input[0]
+    if input_image.shape != 3:
+        input_image = GraytoRgb()(input_image)
+    # preprocess to default keras net input
+    input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
+
+    padded = tf.keras.layers.Lambda(pad)([input_image, padding])
+
+    #encoder
+    effnet_base = efnet(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
+    print(effnet_base.summary())
+    for l in effnet_base.layers:
+        l.trainable = True
+
+    # skips
+    conv1 = effnet_base.get_layer("block2a_expand_activation").output
+    conv2 = effnet_base.get_layer("block3a_expand_activation").output
+    conv3 = effnet_base.get_layer("block4a_expand_activation").output
+    conv4 = effnet_base.get_layer("block6a_expand_activation").output
+
+    # bridge
+    conv4 = conv_block_simple(conv4, 256, "b_1")
+
+    # decoder
+    up6 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv4), conv3], axis=-1)
+    conv5 = conv_block_simple(up6, 256, "conv6_1")
+    conv5 = conv_block_simple(conv5, 256, "conv6_2")
+
+    up7 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv5), conv2], axis=-1)
+    conv6 = conv_block_simple(up7, 192, "conv7_1")
+    conv6 = conv_block_simple(conv6, 192, "conv7_2")
+
+    up8 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv6), conv1], axis=-1)
+    conv8 = conv_block_simple(up8, 128, "conv8_1")
+    conv8 = conv_block_simple(conv8, 128, "conv8_2")
+
+    up9 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv8), padded], axis=-1)
+    conv9 = conv_block_simple(up9, 64, "conv9_1")
+    conv9 = conv_block_simple(conv9, 64, "conv9_2")
+    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
+    out = tf.keras.layers.Lambda(crop)([out, padding])
+
+    model = tf.keras.Model(input, out)
+    return model
+
 
 class Architecture(enum.Enum):
     FCN_SKIP = 'fcn_skip'
@@ -386,6 +443,7 @@ class Architecture(enum.Enum):
     RES_UNET = 'res_unet'
     MOBILE_NET = 'mobile_net'
     UNET = 'unet'
+    EFFNETB1 = 'effb1'
 
     def __call__(self, *args, **kwargs):
         return self.model()
@@ -398,6 +456,14 @@ class Architecture(enum.Enum):
             Architecture.RES_UNET: res_unet,
             Architecture.MOBILE_NET: unet_with_mobile_net_encoder,
             Architecture.UNET: unet,
+            Architecture.EFFNETB0: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB0),
+            Architecture.EFFNETB1: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB1),
+            Architecture.EFFNETB2: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB2),
+            Architecture.EFFNETB3: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB3),
+            Architecture.EFFNETB4: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB4),
+            Architecture.EFFNETB5: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB5),
+            Architecture.EFFNETB6: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB6),
+            Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
         }[self]
 
 
@@ -420,3 +486,8 @@ class Optimizers(enum.Enum):
             Optimizers.SGD: tf.keras.optimizers.SGD,
             Optimizers.NADAM: tf.keras.optimizers.Nadam,
         }[self]
+
+
+if __name__ == '__main__':
+    effnet_base = efn.EfficientNetB1(weights='imagenet', include_top=False,  input_shape=(256, 256, 3))
+    print(effnet_base.summary())
