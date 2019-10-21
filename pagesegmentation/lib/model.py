@@ -97,8 +97,6 @@ def model_fcn_skip(input: Tensors, n_classes: int):
 
 def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     input_image = input[0]
-    if input_image.shape != 3:
-        input_image = GraytoRgb()(input_image)
     # preprocess to default mobile net input
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
@@ -325,8 +323,6 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
         return conv
 
     input_image = input[0]
-    if input_image.shape != 3:
-        input_image = GraytoRgb()(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -386,8 +382,6 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
         return conv
 
     input_image = input[0]
-    #if input_image.shape != 3:
-    #    input_image = GraytoRgb()(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
