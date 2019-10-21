@@ -100,8 +100,6 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
     # preprocess to default mobile net input
-    #input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
-    #input_image = tf.keras.applications.mobilenet_v2.preprocess_input(input_image * 255)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -329,8 +327,6 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     input_image = input[0]
     if input_image.shape != 3:
         input_image = GraytoRgb()(input_image)
-    # preprocess to default keras net input
-    # input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -390,10 +386,8 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
         return conv
 
     input_image = input[0]
-    if input_image.shape != 3:
-        input_image = GraytoRgb()(input_image)
-    # preprocess to default keras net input
-    #input_image = tf.keras.layers.Lambda(lambda x: x * 255 / 127.5 - 1)(input_image)
+    #if input_image.shape != 3:
+    #    input_image = GraytoRgb()(input_image)
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -419,16 +413,16 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     conv5 = conv_block_simple(conv5, 256, "conv6_2")
 
     up7 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv5), conv2], axis=-1)
-    conv6 = conv_block_simple(up7, 192, "conv7_1")
-    conv6 = conv_block_simple(conv6, 192, "conv7_2")
+    conv6 = conv_block_simple(up7, 128, "conv7_1")
+    conv6 = conv_block_simple(conv6, 128, "conv7_2")
 
     up8 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv6), conv1], axis=-1)
-    conv8 = conv_block_simple(up8, 128, "conv8_1")
-    conv8 = conv_block_simple(conv8, 128, "conv8_2")
+    conv8 = conv_block_simple(up8, 64, "conv8_1")
+    conv8 = conv_block_simple(conv8, 64, "conv8_2")
 
     up9 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv8), padded], axis=-1)
-    conv9 = conv_block_simple(up9, 64, "conv9_1")
-    conv9 = conv_block_simple(conv9, 64, "conv9_2")
+    conv9 = conv_block_simple(up9, 32, "conv9_1")
+    conv9 = conv_block_simple(conv9, 32, "conv9_2")
     out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
     out = tf.keras.layers.Lambda(crop)([out, padding])
 
@@ -499,20 +493,20 @@ class PreprocessInput(enum.Enum):
 
     def preprocess(self):
         return {
-            PreprocessInput.FCN_SKIP: default_preprocess,
-            PreprocessInput.FCN: default_preprocess,
-            PreprocessInput.RES_NET: tf.keras.applications.resnet50.preprocess_input,
-            PreprocessInput.RES_UNET: default_preprocess,
-            PreprocessInput.MOBILE_NET: tf.keras.applications.mobilenet_v2.preprocess_input,
-            PreprocessInput.UNET: default_preprocess,
-            PreprocessInput.EFFNETB0: efn.preprocess_input,
-            PreprocessInput.EFFNETB1: efn.preprocess_input,
-            PreprocessInput.EFFNETB2: efn.preprocess_input,
-            PreprocessInput.EFFNETB3: efn.preprocess_input,
-            PreprocessInput.EFFNETB4: efn.preprocess_input,
-            PreprocessInput.EFFNETB5: efn.preprocess_input,
-            PreprocessInput.EFFNETB6: efn.preprocess_input,
-            PreprocessInput.EFFNETB7: efn.preprocess_input,
+            PreprocessInput.FCN_SKIP: (default_preprocess, False),
+            PreprocessInput.FCN: (default_preprocess, False),
+            PreprocessInput.RES_NET: (tf.keras.applications.resnet50.preprocess_input, True),
+            PreprocessInput.RES_UNET: (default_preprocess, False),
+            PreprocessInput.MOBILE_NET: (tf.keras.applications.mobilenet_v2.preprocess_input, True),
+            PreprocessInput.UNET: (default_preprocess, False),
+            PreprocessInput.EFFNETB0: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB1: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB2: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB3: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB4: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB5: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB6: (efn.preprocess_input, True),
+            PreprocessInput.EFFNETB7: (efn.preprocess_input, True),
         }[self]
 
 

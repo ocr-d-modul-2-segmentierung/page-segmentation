@@ -3,10 +3,12 @@ import numpy as np
 from typing import Optional
 from pagesegmentation.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
 from pagesegmentation.lib.trainer import TrainSettings, AugmentationSettings
+from pagesegmentation.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData
 import os
 import logging
 from pagesegmentation.lib.model import Optimizers, Architecture
+from pagesegmentation.lib.model import PreprocessInput
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +48,15 @@ class Network:
         self.type = type
         self.has_binary = has_binary
         self.foreground_masks = foreground_masks
-        self.input = tf.keras.layers.Input((None, None, input_image_dimension))
+
         self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
+        preprocess, rgb = PreprocessInput(self.architecture)()
+        if rgb:
+            self.input = tf.keras.layers.Input((None, None, 3))
+        else:
+            self.input = tf.keras.layers.Input((None, None, input_image_dimension))
+
         model = model if not model or '.' in model else model + '.h5'
         if model and not os.path.exists(model) and model.endswith('.h5'):
             from subprocess import check_call
@@ -102,15 +110,15 @@ class Network:
 
     def create_dataset_inputs(self, train_data, data_augmentation=True,
                               data_augmentation_settings: AugmentationSettings = AugmentationSettings()):
-        from pagesegmentation.lib.model import PreprocessInput
-        preprocess = PreprocessInput(self.architecture)()
-        def gray_to_rgb(img):
-            return np.repeat(img, 3, 2)
+        preprocess, rgb = PreprocessInput(self.architecture)()
 
         while True:
             for data_idx, d in enumerate(train_data):
 
                 b, i, m = d.binary, d.image, d.mask
+                if rgb:
+                    i = gray_to_rgb(i)
+
                 if b is None:
                     b = np.full(i.shape, 1, dtype=np.uint8)
                     assert (i.dtype == np.uint8)
@@ -146,9 +154,9 @@ class Network:
                                                         interpolation_order=0,
                                                         )
                     seed = np.random.randint(0, 9999999)
-                    i_x = image_gen.flow(np.expand_dims(np.expand_dims(i, axis=0), axis=-1), seed=seed, batch_size=1)
-                    b_x = binary_gen.flow(np.expand_dims(np.expand_dims(b, axis=0), axis=-1), seed=seed, batch_size=1)
-                    m_x = mask_gen.flow(np.expand_dims(np.expand_dims(m, axis=0), axis=-1), seed=seed, batch_size=1)
+                    i_x = image_gen.flow(image_to_batch(i), seed=seed, batch_size=1)
+                    b_x = binary_gen.flow(image_to_batch(b), seed=seed, batch_size=1)
+                    m_x = mask_gen.flow(image_to_batch(m), seed=seed, batch_size=1)
 
                     i_n = next(i_x)
                     b_n = next(b_x)
@@ -156,9 +164,9 @@ class Network:
 
                     yield [preprocess(i_n), b_n], m_n
                 else:
-                    yield [np.expand_dims(np.expand_dims(preprocess(i), axis=0), axis=-1),
-                           np.expand_dims(np.expand_dims(b, axis=0), axis=-1)], \
-                          np.expand_dims(np.expand_dims(m, axis=0), axis=-1)
+                    yield [image_to_batch(preprocess(i)),
+                           image_to_batch(b)], \
+                          image_to_batch(m)
 
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
@@ -247,9 +255,12 @@ class Network:
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
         from pagesegmentation.lib.model import PreprocessInput
-        preprocess = PreprocessInput(self.model.name)()
-        logit = self.model.predict([np.expand_dims(np.expand_dims(preprocess(data.image), axis=0), axis=-1),
-                                   np.expand_dims(np.expand_dims(data.binary, axis=0), axis=-1)])[0, :, :, :]
+        image = data.image
+        preprocess, rgb = PreprocessInput(self.model.name)()
+        if rgb:
+            image = gray_to_rgb(image)
+        logit = self.model.predict([image_to_batch(preprocess(image)),
+                                   image_to_batch(data.binary)])[0, :, :, :]
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)
         return logit, prob, pred
