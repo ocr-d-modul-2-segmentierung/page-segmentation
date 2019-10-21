@@ -6,15 +6,15 @@ logger = logging.getLogger(__name__)
 
 def migrate_model(path_to_meta, n_classes, l_rate, output_path):
     with tf.Graph().as_default() as graph:
-        with tf.Session(graph=graph) as sess:
+        with tf.compat.v1.Session(graph=graph) as sess:
             # import graph
-            saver = tf.train.import_meta_graph(path_to_meta)
+            saver = tf.compat.v1.train.import_meta_graph(path_to_meta)
 
             # load weights for graph
             saver.restore(sess, path_to_meta[:-5])
 
             # get all global variables (including model variables)
-            vars_global = tf.global_variables()
+            vars_global = tf.compat.v1.global_variables()
 
             # get their name and value and put them into dictionary
             sess.as_default()

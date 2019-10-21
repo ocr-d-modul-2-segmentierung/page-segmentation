@@ -17,7 +17,7 @@ class Padding2DTensor(tf.keras.layers.Layer):
             raise Exception('Padding2DTensor must be called on a list of tensors '
                             'with size2). Got: ' + str(inputs))
         px, py = padding
-        shape = tf.shape(input)
+        shape = tf.shape(input=input)
         output = tf.image.pad_to_bounding_box(input, 0, 0, tf.gather(shape, 1) + px, tf.gather(shape, 2) + py)
         return output
 

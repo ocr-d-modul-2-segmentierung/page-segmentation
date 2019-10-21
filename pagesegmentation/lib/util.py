@@ -15,6 +15,5 @@ def image_to_batch(img):
     else:
 
         assert img.shape != 3
-        z = np.expand_dims(img, axis=0)
         return np.expand_dims(img, axis=0)
 

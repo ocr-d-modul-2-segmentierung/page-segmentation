@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 class Network:
     def __init__(self,
                  type: str,
-
                  n_classes: int = -1,
                  model_constructor: Architecture = Architecture.FCN_SKIP,
                  l_rate: float = 1e-4,
@@ -48,13 +47,13 @@ class Network:
         self.has_binary = has_binary
         self.foreground_masks = foreground_masks
 
-        self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
         preprocess, rgb = Architecture(self.architecture).preprocess()
         if rgb:
             self.input = tf.keras.layers.Input((None, None, 3))
         else:
             self.input = tf.keras.layers.Input((None, None, input_image_dimension))
+        self.binary = tf.keras.layers.Input((None, None, 1))
 
         model = model if not model or '.' in model else model + '.h5'
         if model and not os.path.exists(model) and model.endswith('.h5'):
@@ -86,7 +85,7 @@ class Network:
             if model and continue_training:
                 raise e
 
-            self.model = model_constructor.model()([self.input], n_classes)
+            self.model = model_constructor.model()([self.input, self.binary], n_classes)
             optimizer = optimizer()
             _optimizer = None
             if optimizer_norm_clipping and optimizer_clipping:
@@ -116,6 +115,7 @@ class Network:
 
                 b, i, m = d.binary, d.image, d.mask
                 if rgb:
+
                     i = gray_to_rgb(i)
 
                 if b is None:
@@ -161,15 +161,19 @@ class Network:
                     b_n = next(b_x)
                     m_n = next(m_x)
 
-                    yield [preprocess(i_n), b_n], m_n
+                    yield ({'input_1': image_to_batch(preprocess(i_n)),
+                            'input_2': image_to_batch(b_n)}), \
+                          {'logits': image_to_batch(m_n)}
                 else:
-                    yield [image_to_batch(preprocess(i)),
-                           image_to_batch(b)], \
-                          image_to_batch(m)
+                    l = preprocess(i)
+                    yield ({'input_1': image_to_batch(preprocess(i)),
+                           'input_2': image_to_batch(b)}), \
+                          {'logits': image_to_batch(m)}
 
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
-        logger.info(self.model.summary)
+        logger.info(self.model.summary())
+        print(self.model.summary())
 
         import os
         callbacks = []
@@ -216,7 +220,6 @@ class Network:
 
             tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
                                                          histogram_freq=1,
-                                                         batch_size=1,
                                                          write_graph=True,
                                                          write_images=False)
             callbacks.append(diagnose_cb)
@@ -242,11 +245,9 @@ class Network:
                             epochs=setting.n_epoch,
                             steps_per_epoch=len(setting.train_data),
                             use_multiprocessing=False,
-                            workers=1,
                             validation_steps=len(setting.validation_data),
                             validation_data=test_gen,
                             callbacks=callbacks)
-
         return fg
 
     def evaluate_dataset(self, eval_data):
@@ -267,8 +268,8 @@ class Network:
 
 
 def tf_backend_allow_growth():
-    config = tf.ConfigProto(log_device_placement=False)
+    config = tf.compat.v1.ConfigProto(log_device_placement=False)
     config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
     config.log_device_placement = True  # to log device placement (on which device the operation ran)
-    sess = tf.Session(config=config)
-    tf.keras.backend.set_session(sess)
+    sess = tf.compat.v1.Session(config=config)
+    tf.compat.v1.keras.backend.set_session(sess)

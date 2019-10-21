@@ -44,13 +44,13 @@ def fgpa(binary_inputs):
                                         tf.keras.backend.argmax(y_pred, axis=-1))
 
         def count_fg(img):
-            return tf.reduce_sum(img, axis=-1)
+            return tf.reduce_sum(input_tensor=img, axis=-1)
 
         fg_equals = tf.multiply(tf.keras.backend.cast(equals, 'int64'), tf.keras.backend.cast(binary, 'int64'))
         fgpa_correct = count_fg(fg_equals)
         fgpa_total = count_fg(binary)
         single_fgpa = tf.divide(tf.cast(fgpa_correct, tf.float32), tf.cast(fgpa_total, tf.float32))
-        fgpa = tf.reduce_mean(single_fgpa)
+        fgpa = tf.reduce_mean(input_tensor=single_fgpa)
 
         return fgpa
 
@@ -63,10 +63,10 @@ def jacard_coef(y_true, y_pred):
     y_true = tf.keras.backend.squeeze(y_true, axis=-1)
     y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
 
-    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
-    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
+    intersection = tf.reduce_sum(input_tensor=tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
+    sum_ = tf.reduce_sum(input_tensor=tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     jac = (intersection + 100) / (sum_ - intersection + 100)
-    return tf.reduce_mean(jac, axis=0)
+    return tf.reduce_mean(input_tensor=jac, axis=0)
 
 
 def jacard_coef_loss(y_true, y_pred):
@@ -79,10 +79,10 @@ def dice_coef(y_true, y_pred):
     y_true = tf.keras.backend.squeeze(y_true, axis=-1)
     y_true = tf.keras.backend.one_hot(tf.keras.backend.cast(y_true, 'int64'), n_classes)
 
-    intersection = tf.reduce_sum(tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
-    sum_ = tf.reduce_sum(tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
+    intersection = tf.reduce_sum(input_tensor=tf.keras.backend.abs(y_true * y_pred), axis=(1, 2))
+    sum_ = tf.reduce_sum(input_tensor=tf.keras.backend.abs(y_true + y_pred), axis=(1, 2))
     dice = (2.0 * intersection + 100) / (sum_ + 100)
-    return tf.reduce_mean(dice, axis=0)
+    return tf.reduce_mean(input_tensor=dice, axis=0)
 
 
 def dice_coef_loss(y_true, y_pred):

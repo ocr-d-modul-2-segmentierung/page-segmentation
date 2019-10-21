@@ -1,5 +1,4 @@
 from typing import Callable, Union, List, Tuple
-from pagesegmentation.lib.layers import GraytoRgb
 from functools import partial
 import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
@@ -12,7 +11,7 @@ def calculate_padding(input, scaling_factor: int = 32):
     def scale(i: int, f: int) -> int:
         return (f - i % f) % f
 
-    shape = tf.shape(input)
+    shape = tf.shape(input=input)
     px = scale(tf.gather(shape, 1), scaling_factor)
     py = scale(tf.gather(shape, 2), scaling_factor)
     return px, py
@@ -29,8 +28,6 @@ def pad(input_tensors):
 
 def crop(input_tensors):
     input, padding = input_tensors[0], input_tensors[1]
-    #input = tf.Print(input, [padding])
-    #input = tf.Print(input, [tf.keras.backend.shape(input)])
 
     if input is None:
         return None
@@ -40,7 +37,7 @@ def crop(input_tensors):
         input = tf.expand_dims(input, axis=-1)
 
     px, py = padding
-    shape = tf.shape(input)
+    shape = tf.shape(input=input)
     output = tf.image.crop_to_bounding_box(input, 0, 0, tf.gather(shape, 1) - px, tf.gather(shape, 2) - py)
     return output
 
@@ -99,7 +96,6 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     input_image = input[0]
     # preprocess to default mobile net input
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
-
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
     base_model = tf.keras.applications.MobileNetV2(weights='imagenet', include_top=False, input_tensor=padded)
@@ -147,7 +143,7 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
 
     x = tf.keras.layers.Conv2DTranspose(60, 3, strides=2, padding='same', activation=tf.nn.relu)(x)
     x = tf.keras.layers.Lambda(crop)([x, padding])
-    x = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(x)
+    x = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='logits', padding='valid')(x)
 
     return tf.keras.Model(inputs=input, outputs=x, name='mobile_net')
 
@@ -200,7 +196,7 @@ def unet(input: Tensors, n_classes:int):
     conv9 = tf.keras.layers.Conv2D(64, 3, activation='relu', padding='same', kernel_initializer='he_normal')(conv9)
     conv9 = tf.keras.layers.Lambda(crop)([conv9, padding])
 
-    logits = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
+    logits = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='logits', padding='valid')(conv9)
 
     model = tf.keras.models.Model(inputs=input, outputs=logits, name='unet')
 
@@ -230,8 +226,6 @@ def model_fcn(input: Tensors, n_classes: int):
     deconv4 = tf.keras.layers.Conv2DTranspose(30, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(deconv3)
     deconv5 = tf.keras.layers.Conv2DTranspose(20, (2, 2), padding="same", strides=(2, 2), activation=None)(deconv4)
     deconv5 = tf.keras.layers.Lambda(crop)([deconv5, padding])
-    # prediction
-    #upscaled = tf.image.resize_images(deconv5, tf.shape(input)[1:3])
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
     model = tf.keras.models.Model(inputs=input, outputs=logits, name='fcn')
 
@@ -323,23 +317,21 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
         return conv
 
     input_image = input[0]
-    padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
 
-    padded = tf.keras.layers.Lambda(pad)([input_image, padding])
+    padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x), name='lambda_calc_pad')(input_image)
+    padded = tf.keras.layers.Lambda(pad, name='lambda_pad')([input_image, padding])
 
     #encoder
-    resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
+    resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_tensor=padded)#(256, 256, 3))
 
-    #resnet_base.summary()
     for l in resnet_base.layers:
         l.trainable = True
-
     # skips
-    conv1 = resnet_base.get_layer("activation").output
-    conv2 = resnet_base.get_layer("activation_9").output
-    conv3 = resnet_base.get_layer("activation_21").output
-    conv4 = resnet_base.get_layer("activation_39").output
-    conv5 = resnet_base.get_layer("activation_48").output
+    conv1 = resnet_base.get_layer("conv1_relu").output
+    conv2 = resnet_base.get_layer("conv2_block3_out").output
+    conv3 = resnet_base.get_layer("conv3_block4_out").output
+    conv4 = resnet_base.get_layer("conv4_block6_out").output
+    conv5 = resnet_base.get_layer("conv5_block3_out").output
 
     # bridge
     conv5 = conv_block_simple(conv5, 256, "b_1")
@@ -363,8 +355,8 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     up10 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv9), padded], axis=-1)
     conv10 = conv_block_simple(up10, 32, "conv10_1")
     conv10 = conv_block_simple(conv10, 32, "conv10_2")
-    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv10)
-    out = tf.keras.layers.Lambda(crop)([out, padding])
+    outc = tf.keras.layers.Lambda(crop, name='lambdacrop')([conv10, padding])
+    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='logits', padding='valid')(outc)
 
     model = tf.keras.Model(input, out, name='image_res_net')
     return model
@@ -383,12 +375,10 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
 
     input_image = input[0]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
-
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
     #encoder
     effnet_base = efnet(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
-    print(effnet_base.summary())
     for l in effnet_base.layers:
         l.trainable = True
 
@@ -417,8 +407,8 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     up9 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv8), padded], axis=-1)
     conv9 = conv_block_simple(up9, 64, "conv9_1")
     conv9 = conv_block_simple(conv9, 64, "conv9_2")
-    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
-    out = tf.keras.layers.Lambda(crop)([out, padding])
+    out = tf.keras.layers.Lambda(crop)([conv9, padding])
+    out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='logits', padding='valid')(out)
 
     model = tf.keras.Model(input, out, name='effb0')
     return model
@@ -482,12 +472,6 @@ class Architecture(enum.Enum):
             Architecture.EFFNETB6: (efn.preprocess_input, True),
             Architecture.EFFNETB7: (efn.preprocess_input, True),
         }[self]
-
-
-
-
-
-
 
 
 class Optimizers(enum.Enum):

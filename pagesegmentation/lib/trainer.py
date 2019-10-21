@@ -148,7 +148,7 @@ if __name__ == "__main__":
         tensorboard=False,
         early_stopping_max_performance_drops=5,
         load=None,#os.path.join(dataset_dir, 'best_model.h5')
-        architecture=Architecture.EFFNETB1
+        architecture=Architecture.EFFNETB0
     )
 
     trainer = Trainer(settings)
