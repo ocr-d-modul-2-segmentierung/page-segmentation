@@ -257,7 +257,7 @@ class Network:
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
         image = data.image
-        architecture = self.model.name
+        architecture = self.architecture if self.model.name == 'model' else self.model.name
         preprocess, rgb = Architecture(architecture).preprocess()
         if rgb:
             image = gray_to_rgb(image)
