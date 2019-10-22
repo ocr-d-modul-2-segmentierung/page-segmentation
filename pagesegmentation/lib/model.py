@@ -407,21 +407,25 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     conv5 = conv_block_simple(conv5, 256, "conv6_2")
 
     up7 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv5), conv2], axis=-1)
-    conv6 = conv_block_simple(up7, 128, "conv7_1")
-    conv6 = conv_block_simple(conv6, 128, "conv7_2")
+    conv6 = conv_block_simple(up7, 196, "conv7_1")
+    conv6 = conv_block_simple(conv6, 196, "conv7_2")
 
     up8 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv6), conv1], axis=-1)
-    conv8 = conv_block_simple(up8, 64, "conv8_1")
-    conv8 = conv_block_simple(conv8, 64, "conv8_2")
+    conv8 = conv_block_simple(up8, 128, "conv8_1")
+    conv8 = conv_block_simple(conv8, 128, "conv8_2")
 
     up9 = tf.keras.layers.concatenate([tf.keras.layers.UpSampling2D()(conv8), padded], axis=-1)
-    conv9 = conv_block_simple(up9, 32, "conv9_1")
-    conv9 = conv_block_simple(conv9, 32, "conv9_2")
+    conv9 = conv_block_simple(up9, 64, "conv9_1")
+    conv9 = conv_block_simple(conv9, 64, "conv9_2")
     out = tf.keras.layers.Convolution2D(n_classes, 1, 1, name='pred_32', padding='valid')(conv9)
     out = tf.keras.layers.Lambda(crop)([out, padding])
 
     model = tf.keras.Model(input, out, name='effb0')
     return model
+
+
+def default_preprocess(x):
+    return x / 255.0
 
 
 class Architecture(enum.Enum):
@@ -461,47 +465,29 @@ class Architecture(enum.Enum):
             Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
         }[self]
 
-
-def default_preprocess(x):
-    return x / 255.0
-
-
-class PreprocessInput(enum.Enum):
-    FCN_SKIP = 'fcn_skip'
-    FCN = 'fcn'
-    RES_NET = 'image_res_net'
-    RES_UNET = 'res_unet'
-    MOBILE_NET = 'mobile_net'
-    UNET = 'unet'
-    EFFNETB0 = 'effb0'
-    EFFNETB1 = 'effb1'
-    EFFNETB2 = 'effb2'
-    EFFNETB3 = 'effb3'
-    EFFNETB4 = 'effb4'
-    EFFNETB5 = 'effb5'
-    EFFNETB6 = 'effb6'
-    EFFNETB7 = 'effb7'
-
-    def __call__(self, *args, **kwargs):
-        return self.preprocess()
-
     def preprocess(self):
         return {
-            PreprocessInput.FCN_SKIP: (default_preprocess, False),
-            PreprocessInput.FCN: (default_preprocess, False),
-            PreprocessInput.RES_NET: (tf.keras.applications.resnet50.preprocess_input, True),
-            PreprocessInput.RES_UNET: (default_preprocess, False),
-            PreprocessInput.MOBILE_NET: (tf.keras.applications.mobilenet_v2.preprocess_input, True),
-            PreprocessInput.UNET: (default_preprocess, False),
-            PreprocessInput.EFFNETB0: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB1: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB2: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB3: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB4: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB5: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB6: (efn.preprocess_input, True),
-            PreprocessInput.EFFNETB7: (efn.preprocess_input, True),
+            Architecture.FCN_SKIP: (default_preprocess, False),
+            Architecture.FCN: (default_preprocess, False),
+            Architecture.RES_NET: (tf.keras.applications.resnet50.preprocess_input, True),
+            Architecture.RES_UNET: (default_preprocess, False),
+            Architecture.MOBILE_NET: (tf.keras.applications.mobilenet_v2.preprocess_input, True),
+            Architecture.UNET: (default_preprocess, False),
+            Architecture.EFFNETB0: (efn.preprocess_input, True),
+            Architecture.EFFNETB1: (efn.preprocess_input, True),
+            Architecture.EFFNETB2: (efn.preprocess_input, True),
+            Architecture.EFFNETB3: (efn.preprocess_input, True),
+            Architecture.EFFNETB4: (efn.preprocess_input, True),
+            Architecture.EFFNETB5: (efn.preprocess_input, True),
+            Architecture.EFFNETB6: (efn.preprocess_input, True),
+            Architecture.EFFNETB7: (efn.preprocess_input, True),
         }[self]
+
+
+
+
+
+
 
 
 class Optimizers(enum.Enum):

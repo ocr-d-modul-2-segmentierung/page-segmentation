@@ -51,7 +51,7 @@ class Network:
 
         self.binary = tf.keras.layers.Input((None, None, 1))
         self.n_classes = n_classes
-        preprocess, rgb = PreprocessInput(self.architecture)()
+        preprocess, rgb = Architecture(self.architecture).preprocess()
         if rgb:
             self.input = tf.keras.layers.Input((None, None, 3))
         else:
@@ -254,9 +254,8 @@ class Network:
 
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
-        from pagesegmentation.lib.model import PreprocessInput
         image = data.image
-        preprocess, rgb = PreprocessInput(self.model.name)()
+        preprocess, rgb = Architecture(self.architecture).preprocess()
         if rgb:
             image = gray_to_rgb(image)
         logit = self.model.predict([image_to_batch(preprocess(image)),
