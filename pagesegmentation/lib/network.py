@@ -257,7 +257,8 @@ class Network:
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
         image = data.image
-        preprocess, rgb = Architecture(self.architecture).preprocess()
+        architecture = self.model.name
+        preprocess, rgb = Architecture(architecture).preprocess()
         if rgb:
             image = gray_to_rgb(image)
         logit = self.model.predict([image_to_batch(preprocess(image)),
