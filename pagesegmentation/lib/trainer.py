@@ -119,8 +119,6 @@ class Trainer:
         else:
             print(self.train_net.evaluate_dataset(self.settings.validation_data))
 
-
-
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
     from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
@@ -144,11 +142,11 @@ if __name__ == "__main__":
         output_dir=dataset_dir,
         threads=8,
         foreground_masks=False,
-        data_augmentation=False,
+        data_augmentation=True,
         tensorboard=False,
         early_stopping_max_performance_drops=5,
         load=None,#os.path.join(dataset_dir, 'best_model.h5')
-        architecture=Architecture.EFFNETB0
+        architecture=Architecture.FCN_SKIP
     )
 
     trainer = Trainer(settings)

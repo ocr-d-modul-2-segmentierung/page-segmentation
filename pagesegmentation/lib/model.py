@@ -41,11 +41,10 @@ def crop(input_tensors):
     output = tf.image.crop_to_bounding_box(input, 0, 0, tf.gather(shape, 1) - px, tf.gather(shape, 2) - py)
     return output
 
-
 def model_fcn_skip(input: Tensors, n_classes: int):
     input_image = input[0]
-
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
+
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
     conv1 = tf.keras.layers.Conv2D(20, (5, 5), padding="same", activation=tf.nn.relu,
                                    data_format="channels_last")(padded)

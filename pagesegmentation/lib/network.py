@@ -161,11 +161,10 @@ class Network:
                     b_n = next(b_x)
                     m_n = next(m_x)
 
-                    yield ({'input_1': image_to_batch(preprocess(i_n)),
-                            'input_2': image_to_batch(b_n)}), \
-                          {'logits': image_to_batch(m_n)}
+                    yield ({'input_1': preprocess(i_n),
+                            'input_2': b_n}), \
+                          {'logits': m_n}
                 else:
-                    l = preprocess(i)
                     yield ({'input_1': image_to_batch(preprocess(i)),
                            'input_2': image_to_batch(b)}), \
                           {'logits': image_to_batch(m)}
@@ -173,7 +172,6 @@ class Network:
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
         logger.info(self.model.summary())
-        print(self.model.summary())
 
         import os
         callbacks = []
