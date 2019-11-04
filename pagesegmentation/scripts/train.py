@@ -2,10 +2,10 @@ import argparse
 import json
 from os import path
 from typing import List
+from pagesegmentation.lib.model import Architecture
 
 # remove when tensorflow#30559 is merged in 1.14.1
 import warnings
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -42,6 +42,12 @@ def main():
                         help="Reduce learn rate when on plateau")
     parser.add_argument("--color-map", type=str, default="image_map.json",
                         help="color map to load")
+    parser.add_argument('--architecture',
+                        default=Architecture.FCN_SKIP,
+                        const=Architecture.FCN_SKIP,
+                        nargs='?',
+                        choices=[x.value for x in list(Architecture)],
+                        help='Network architecture to use for training')
     parser.add_argument("--gpu-allow-growth", action="store_true",
                         help="set allow_growth option for Tensorflow GPU. Use if getting CUDNN_INTERNAL_ERROR")
     # aliases to support legacy names of options
@@ -100,7 +106,8 @@ def main():
         data_augmentation=args.data_augmentation,
         tensorboard=args.tensorboard,
         reduce_lr_on_plateau=args.reduce_lr_on_plateau,
-        gpu_allow_growth=args.gpu_allow_growth
+        gpu_allow_growth=args.gpu_allow_growth,
+        architecture=Architecture(args.architecture)
     )
     trainer = Trainer(settings)
     trainer.train()

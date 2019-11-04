@@ -52,6 +52,7 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             return json.load(f)["char_height"]
 
     def if_startswith(fn, sw):
+
         return [b for b in fn if any([os.path.basename(b).startswith(s) for s in sw])]
 
     binary_dir = os.path.join(root_dir, binary_dir_)
@@ -63,19 +64,24 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             raise Exception("Dataset dir does not exist at '%s'" % d)
 
     bin, img, m = listdir(binary_dir), listdir(images, masks_postfix, True), listdir(masks, masks_postfix)
-
+    from typing import NamedTuple
     if verify_filenames:
         def filenames(fn, postfix=None):
             if postfix and len(postfix) > 0:
                 fn = [f[:-len(postfix)] if f.endswith(postfix) else f for f in fn]
-            return [os.path.splitext(os.path.basename(f))[0] for f in fn]
 
-        base_names = set(filenames(bin)).intersection(set(filenames(img))).intersection(
-            set(filenames(m, masks_postfix)))
+            x = {os.path.basename(f).split('.')[0] : f for f in fn}
+            return x
+        bin_dir = filenames(bin)
+        img_dir = filenames(img)
+        mask_dir = filenames(m, masks_postfix)
+        base_names = set(bin_dir.keys()).intersection(set(img_dir.keys())).intersection(
+            set(mask_dir.keys()))
 
-        bin = if_startswith(bin, base_names)
-        img = if_startswith(img, base_names)
-        m = if_startswith(m, base_names)
+        bin = [bin_dir.get(basename) for basename in base_names]
+        img = [img_dir.get(basename) for basename in base_names]
+        m = [mask_dir.get(basename) for basename in base_names]
+
     else:
         base_names = None
 
