@@ -22,8 +22,7 @@ setup(
     extras_require={
         'tf_cpu': ['tensorflow>=1.13.0,!=1.14.0,!=2.0.0'],
         'tf_gpu': ['tensorflow-gpu>=1.13.0,!=1.14.0,!=2.0.0'],
-        'ocrd': ['ocrd>=2.0.0a1', 'click']
-    },
+},
     keywords=['OCR', 'page segmentation', 'pixel classifier'],
     data_files=[('', ["requirements.txt"])],
 )
