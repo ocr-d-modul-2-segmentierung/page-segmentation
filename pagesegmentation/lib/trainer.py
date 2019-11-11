@@ -114,10 +114,14 @@ class Trainer:
         self.train_net.train_dataset(setting=self.settings, callback=callback)
 
     def eval(self) -> None:
+        if self.settings.evaluation_data is None:
+            logger.warning('Evaluation Dataset in Trainsetting not set! ')
+            return
         if len(self.settings.evaluation_data) > 0:
             self.train_net.evaluate_dataset(self.settings.evaluation_data)
         else:
-            print(self.train_net.evaluate_dataset(self.settings.validation_data))
+            logger.log(self.train_net.evaluate_dataset(self.settings.validation_data))
+
 
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
@@ -133,23 +137,25 @@ if __name__ == "__main__":
     eval_data = dataset_loader.load_data_from_json(
         [os.path.join(dataset_dir, 't.json')], "eval")
     settings = TrainSettings(
-        n_epoch=100,
+        n_epoch=1,
         n_classes=len(dataset_loader.color_map),
         l_rate=1e-3,
-        train_data=train_data,
+        train_data=test_data,
         validation_data=test_data,
+        evaluation_data=test_data,
         display=10,
         output_dir=dataset_dir,
         threads=8,
         foreground_masks=False,
         data_augmentation=True,
-        tensorboard=False,
+        tensorboard=True,
         early_stopping_max_performance_drops=5,
         load=None,#os.path.join(dataset_dir, 'best_model.h5')
-        architecture=Architecture.FCN_SKIP
+        architecture=Architecture.EFFNETB0
     )
 
     trainer = Trainer(settings)
     trainer.train()
+    trainer.eval()
     for x in test_data:
         trainer.train_net.predict_single_data(x)

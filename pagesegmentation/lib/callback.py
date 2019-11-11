@@ -3,6 +3,7 @@ import tensorflow as tf
 import os
 from pagesegmentation.lib.util import image_to_batch, gray_to_rgb
 
+
 class TrainProgressCallback(tf.keras.callbacks.Callback):
     def init(self, total_iters, early_stopping_iters):
         pass
@@ -15,6 +16,8 @@ class TrainProgressCallback(tf.keras.callbacks.Callback):
 
 
 class TrainProgressCallbackWrapper(tf.keras.callbacks.Callback):
+
+
     def __init__(self,
                  n_iters_per_epoch: int,
                  train_callback: TrainProgressCallback,
@@ -83,7 +86,7 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
             generator_output = next(self.data_generator)
 
             x, y = generator_output
-            logit = self.model.predict(x)[0, :, :, :]
+            logit = self.model.predict_on_batch(x)[0, :, :, :]
             pred = np.argmax(logit, -1)
             color_mask = label_to_colors(pred, colormap=self.color_map)
             inv_binary = np.stack([x.get('input_2')[0, :, :, 0]] * 3, axis=-1)

@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
 import enum
 import efficientnet.tfkeras as efn
+
 Tensors = Union[Tensor, List[Tensor]]
 
 
@@ -91,7 +92,7 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     return model_k
 
 
-def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
+def unet_with_mobile_net_encoder(input: Tensors, n_classes: int):
     input_image = input[0]
     # preprocess to default mobile net input
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
@@ -127,7 +128,7 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     # Create the feature extraction model
     down_stack = tf.keras.Model(inputs=base_model.input, outputs=layers)
 
-    #down_stack.trainable = False
+    # down_stack.trainable = False
     x = input
     # Downsampling through the model
     skips = down_stack(x)
@@ -147,7 +148,7 @@ def unet_with_mobile_net_encoder(input: Tensors, n_classes:int):
     return tf.keras.Model(inputs=input, outputs=x, name='mobile_net')
 
 
-def unet(input: Tensors, n_classes:int):
+def unet(input: Tensors, n_classes: int):
     input_image = input[0]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -220,9 +221,11 @@ def model_fcn(input: Tensors, n_classes: int):
 
     # decoder
     deconv1 = tf.keras.layers.Conv2DTranspose(80, (5, 5), padding="same", activation=tf.nn.relu)(conv7)
-    deconv2 = tf.keras.layers.Conv2DTranspose(60, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(deconv1)
+    deconv2 = tf.keras.layers.Conv2DTranspose(60, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(
+        deconv1)
     deconv3 = tf.keras.layers.Conv2DTranspose(40, (5, 5), padding="same", activation=tf.nn.relu)(deconv2)
-    deconv4 = tf.keras.layers.Conv2DTranspose(30, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(deconv3)
+    deconv4 = tf.keras.layers.Conv2DTranspose(30, (2, 2), padding="same", strides=(2, 2), activation=tf.nn.relu)(
+        deconv3)
     deconv5 = tf.keras.layers.Conv2DTranspose(20, (2, 2), padding="same", strides=(2, 2), activation=None)(deconv4)
     deconv5 = tf.keras.layers.Lambda(crop)([deconv5, padding])
     logits = tf.keras.layers.Conv2D(n_classes, (1, 1), (1, 1), name="logits")(deconv5)
@@ -305,7 +308,6 @@ def res_unet(input: Tensors, n_classes: int):
 
 
 def res_net_fine_tuning(input: Tensors, n_classes: int):
-
     def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
         conv = tf.keras.layers.Conv2D(filters, (3, 3),
                                       padding="same", kernel_initializer="he_normal",
@@ -320,8 +322,9 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x), name='lambda_calc_pad')(input_image)
     padded = tf.keras.layers.Lambda(pad, name='lambda_pad')([input_image, padding])
 
-    #encoder
-    resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_tensor=padded)#(256, 256, 3))
+    # encoder
+    resnet_base = tf.keras.applications.ResNet50(weights='imagenet', include_top=False,
+                                                 input_tensor=padded)  # (256, 256, 3))
 
     for l in resnet_base.layers:
         l.trainable = True
@@ -362,7 +365,6 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
 
 
 def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1):
-
     def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
         conv = tf.keras.layers.Conv2D(filters, (3, 3),
                                       padding="same", kernel_initializer="he_normal",
@@ -376,8 +378,8 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
 
-    #encoder
-    effnet_base = efnet(weights='imagenet', include_top=False,  input_tensor=padded)#input_shape=(256, 256, 3))
+    # encoder
+    effnet_base = efnet(weights='imagenet', include_top=False, input_tensor=padded)  # input_shape=(256, 256, 3))
     for l in effnet_base.layers:
         l.trainable = True
 
@@ -495,5 +497,6 @@ class Optimizers(enum.Enum):
 
 
 if __name__ == '__main__':
-    effnet_base = efn.EfficientNetB1(weights='imagenet', include_top=False,  input_shape=(256, 256, 3))
-    print(effnet_base.summary())
+    #effnet_base = efn.EfficientNetB1(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
+    #print(effnet_base.summary())
+    pass

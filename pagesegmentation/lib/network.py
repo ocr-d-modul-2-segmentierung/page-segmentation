@@ -112,8 +112,8 @@ class Network:
 
         while True:
             for data_idx, d in enumerate(train_data):
-
                 b, i, m = d.binary, d.image, d.mask
+
                 if rgb:
 
                     i = gray_to_rgb(i)
@@ -160,7 +160,6 @@ class Network:
                     i_n = next(i_x)
                     b_n = next(b_x)
                     m_n = next(m_x)
-
                     yield ({'input_1': preprocess(i_n),
                             'input_2': b_n}), \
                           {'logits': m_n}
@@ -250,7 +249,7 @@ class Network:
 
     def evaluate_dataset(self, eval_data):
         eval_gen = self.create_dataset_inputs(eval_data, data_augmentation=False)
-        self.model.evaluate(eval_gen, batch_size=1, steps=len(eval_data))
+        self.model.evaluate(eval_gen, steps=len(eval_data))
 
     def predict_single_data(self, data: SingleData):
         from scipy.special import softmax
@@ -259,7 +258,8 @@ class Network:
         preprocess, rgb = Architecture(architecture).preprocess()
         if rgb:
             image = gray_to_rgb(image)
-        logit = self.model.predict([image_to_batch(preprocess(image)),
+        preprocessed_image = preprocess(image)
+        logit = self.model.predict_on_batch([image_to_batch(preprocessed_image),
                                    image_to_batch(data.binary)])[0, :, :, :]
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)

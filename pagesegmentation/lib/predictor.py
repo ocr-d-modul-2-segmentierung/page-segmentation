@@ -87,9 +87,10 @@ class Predictor:
             inverted_overlay_mask = color_mask.copy()
             inverted_overlay_mask[inv_binary == 0] = 0
 
-            img_io.imsave(os.path.join(self.settings.output, "color", filename), color_mask)
-            img_io.imsave(os.path.join(self.settings.output, "overlay", filename), overlay_mask)
-            img_io.imsave(os.path.join(self.settings.output, "inverted", filename), inverted_overlay_mask)
+            img_io.imsave(os.path.join(self.settings.output, "color", filename), (color_mask * 255).astype(np.uint8))
+            img_io.imsave(os.path.join(self.settings.output, "overlay", filename), (overlay_mask * 255).astype(np.uint8))
+            img_io.imsave(os.path.join(self.settings.output, "inverted", filename), (inverted_overlay_mask * 255).astype(np.uint8))
+
 
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
@@ -106,5 +107,9 @@ if __name__ == "__main__":
         [os.path.join(dataset_dir, 't.json')], "eval")
     settings = PredictSettings(network='/home/alexander/Dokumente/virutal_stafflines/model.h5')
     predictor = Predictor(settings)
-    for x in predictor.predict(test_data):
+    for ind, x in enumerate(predictor.predict(test_data)):
+        image = test_data.data[ind]
+        from matplotlib import pyplot as plt
+        plt.imshow(image.image)
+        plt.show()
         print(x)
