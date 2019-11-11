@@ -1,0 +1,106 @@
+import argparse
+import os
+import os.path
+import cv2
+import numpy as np
+
+from pagesegmentation.lib.dataset import SingleData, DatasetLoader
+from pagesegmentation.lib.pc_segmentation import find_segments
+from pagesegmentation.lib.predictor import PredictSettings, Predictor, Prediction, Masks
+from pagesegmentation.scripts.compute_image_normalizations import compute_char_height
+
+# remove when tensorflow#30559 is merged in 1.14.1
+import warnings
+from typing import Tuple, Generator, Optional, List, Callable, Union
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-H", "--target-line-height", type=int, default=None,
+                        help="Scale the data images so that the line height matches this value. If not specified, "
+                             "try to determine automatically.")
+    parser.add_argument("-I", "--image", type=str, default="./",
+                        help="path to binary image to analyze")
+    parser.add_argument("-O", "--output", type=str, default="./",
+                        help="target directory for output")
+    parser.add_argument("--load", type=str, default=None,
+                        help="load an existing model")
+    parser.add_argument("--gpu-allow-growth", action="store_true",
+                        help="set allow_growth option for Tensorflow GPU. Use if getting CUDNN_INTERNAL_ERROR")
+    args = parser.parse_args()
+
+    image_dir, image_basename, image_ext = split_filename(args.image)
+    image_name = image_basename + image_ext
+
+    process_dir = os.path.join(image_dir, image_basename)
+    os.makedirs(process_dir, exist_ok=True)
+
+    from shutil import copy
+    copy(args.image, process_dir)  # TODO
+    char_height = compute_char_height(args.image, True)
+    image_map = {(255, 255, 255): [0, 'bg'],
+                 (255, 0, 0): [1, 'text'],
+                 (0, 255, 0): [2, 'image']}
+
+    rev_image_map = {v[1]: np.array(k) for k, v in image_map.items()}
+
+    segmentation_dir = os.path.join(process_dir, "segmentation")
+    os.makedirs(segmentation_dir, exist_ok=True)
+
+    resize_height = 300
+
+    binary = cv2.imread(args.image)
+    orig_height, orig_width = binary.shape[0:2]
+
+    masks = predict_masks(args.output,
+                          binary,
+                          image_map,
+                          char_height,
+                          model=args.load,
+                          post_processors=None,
+                          gpu_allow_growth=args.gpu_allow_growth,
+                          )
+
+    image = masks.inverted_overlay
+    height, width = image.shape[0:2]
+
+    segments_text, segments_image = find_segments(orig_height, image, char_height, resize_height, rev_image_map)
+
+    # TODO: write pagexml
+
+
+def split_filename(image) -> Tuple[str, str, str]:
+    image = os.path.basename(image)
+    dir = os.path.dirname(image)
+    base, ext = image.split(".", 1)
+    return dir, base, ext
+
+
+def predict_masks(output: str,
+                  binary: np.ndarray,
+                  color_map: dict,
+                  line_height: int,
+                  model: str,
+                  post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None,
+                  gpu_allow_growth: bool = False,
+                  ) -> Masks:
+    data = SingleData(binary=binary, image=binary, original_shape=binary.shape, line_height_px=line_height)
+
+    settings = PredictSettings(
+        network=os.path.abspath(model),
+        output=output,
+        high_res_output=True,
+        post_process=post_processors,
+        color_map=color_map,
+        n_classes=len(color_map),
+        gpu_allow_growth=gpu_allow_growth,
+    )
+    predictor = Predictor(settings)
+
+    return predictor.predict_masks(data)
+
+
+if __name__ == "__main__":
+    main()

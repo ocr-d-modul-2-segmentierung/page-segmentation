@@ -17,6 +17,13 @@ class Prediction(NamedTuple):
 
 
 @dataclass
+class Masks:
+    color: np.ndarray
+    overlay: np.ndarray
+    inverted_overlay: np.ndarray
+
+
+@dataclass
 class PredictSettings:
     network: str = None
     output: str = None
@@ -55,13 +62,26 @@ class Predictor:
             self.output_data(pred, data)
             yield Prediction(pred, prob, data)
 
+    def predict_masks(self, data: SingleData) -> Masks:
+        logit, prob, pred = self.network.predict_single_data(data)
+
+        if self.settings.post_process:
+            for processor in self.settings.post_process:
+                pred = processor(pred, data)
+
+        color_mask, inverted_overlay_mask, overlay_mask = self.generate_output_masks(data, pred)
+        return Masks(
+            color=color_mask,
+            overlay=overlay_mask,
+            inverted_overlay=inverted_overlay_mask
+        )
+
     def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:
             assert (pred.shape[0] == 1)
             pred = pred[0]
 
         if self.settings.output:
-            from pagesegmentation.lib.dataset import label_to_colors
             if data.output_path:
                 filename = data.output_path
                 dir = os.path.dirname(filename)
@@ -73,29 +93,35 @@ class Predictor:
             else:
                 filename = os.path.basename(data.image_path)
 
-            color_mask = label_to_colors(pred, colormap=self.settings.color_map)
-            foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
-            inv_binary = data.binary
-
-            if self.settings.high_res_output:
-                color_mask = resize(color_mask, data.original_shape, order=0)
-                foreground = resize(foreground, data.original_shape) / 255
-                inv_binary = resize(inv_binary, data.original_shape, order=0)
-            inv_binary = np.stack([inv_binary] * 3, axis=-1)
-            overlay_mask = color_mask.copy()
-            overlay_mask[foreground == 0] = 0
-            inverted_overlay_mask = color_mask.copy()
-            inverted_overlay_mask[inv_binary == 0] = 0
+            color_mask, inverted_overlay_mask, overlay_mask = self.generate_output_masks(data, pred)
 
             img_io.imsave(os.path.join(self.settings.output, "color", filename), (color_mask * 255).astype(np.uint8))
             img_io.imsave(os.path.join(self.settings.output, "overlay", filename), (overlay_mask * 255).astype(np.uint8))
             img_io.imsave(os.path.join(self.settings.output, "inverted", filename), (inverted_overlay_mask * 255).astype(np.uint8))
 
 
+    def generate_output_masks(self, data, pred):
+        from pagesegmentation.lib.dataset import label_to_colors
+        color_mask = label_to_colors(pred, colormap=self.settings.color_map)
+        foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
+        inv_binary = data.binary
+        if self.settings.high_res_output:
+            color_mask = resize(color_mask, data.original_shape, order=0)
+            foreground = resize(foreground, data.original_shape) / 255
+            inv_binary = resize(inv_binary, data.original_shape, order=0)
+        inv_binary = np.stack([inv_binary] * 3, axis=-1)
+        overlay_mask = color_mask.copy()
+        overlay_mask[foreground == 0] = 0
+        inverted_overlay_mask = color_mask.copy()
+        inverted_overlay_mask[inv_binary == 0] = 0
+        return color_mask, inverted_overlay_mask, overlay_mask
+
+
 if __name__ == "__main__":
     from pagesegmentation.lib.dataset import DatasetLoader
     from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
     import os
+
     dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'
     image_map = load_image_map_from_file(os.path.join(dataset_dir, 'image_map.json'))
     dataset_loader = DatasetLoader(8, color_map=image_map)
