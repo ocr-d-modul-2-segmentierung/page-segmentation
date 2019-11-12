@@ -1,5 +1,5 @@
 import argparse
-from pagesegmentation.lib.dataset import list_dataset
+from ocr4all_pixel_classifier.lib.dataset import list_dataset
 from random import shuffle, seed
 import json
 

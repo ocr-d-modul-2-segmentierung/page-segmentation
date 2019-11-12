@@ -7,10 +7,10 @@ from typing import Generator, List, Callable, Optional, Union
 
 import tqdm
 
-from pagesegmentation.lib.dataset import DatasetLoader, SingleData
-from pagesegmentation.lib.postprocess import vote_connected_component_class
-from pagesegmentation.lib.predictor import Predictor, PredictSettings, Prediction
-from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+from ocr4all_pixel_classifier.lib.dataset import DatasetLoader, SingleData
+from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
+from ocr4all_pixel_classifier.lib.predictor import Predictor, PredictSettings, Prediction
+from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
 
 
 def glob_all(filenames):

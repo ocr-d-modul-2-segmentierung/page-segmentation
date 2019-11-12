@@ -10,7 +10,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 def main():
-    from pagesegmentation.lib.trainer import TrainSettings, Trainer
+    from ocr4all_pixel_classifier.lib.trainer import TrainSettings, Trainer
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-L", "--l-rate", type=float, default=1e-4,
@@ -75,9 +75,9 @@ def main():
             args.test += relpaths(reldir, d["test"])
             args.eval += relpaths(reldir, d["eval"])
 
-    from pagesegmentation.lib.dataset import DatasetLoader
-    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
-    from pagesegmentation.lib.metrics import Loss
+    from ocr4all_pixel_classifier.lib.dataset import DatasetLoader
+    from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
+    from ocr4all_pixel_classifier.lib.metrics import Loss
 
     image_map = load_image_map_from_file(args.color_map)
     dataset_loader = DatasetLoader(args.target_line_height, image_map)

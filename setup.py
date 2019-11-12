@@ -1,28 +1,38 @@
 from setuptools import setup, find_packages
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(
-    name='page_segmentation',
-    version='0.0.1',
+    name='ocr4all_pixel_classifier',
+    version='0.1.0',
     packages=find_packages(),
-    license='GPL-v3.0',
-    long_description=open("README.md").read(),
+    long_description=long_description,
+
+    long_description_content_type="text/markdown",
     include_package_data=True,
-    author="Christoph Wick, Alexander Hartelt",
-    author_email="christoph.wick@informatik.uni-wuerzburg.de",
+    author="Christoph Wick, Alexander Hartelt, Alexander Gehrke",
+    author_email="christoph.wick@informatik.uni-wuerzburg.de, alexander.hartelt@informatik.uni-wuerzburg.de, alexander.gehrke@informatik.uni-wuerzburg.de",
     url="https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git",
-    download_url='https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git',
     entry_points={
         'console_scripts': [
-            'page-segmentation=pagesegmentation.scripts.main:main',
-            'ocrd-compute-normalizations=pagesegmentation.scripts.compute_image_normalizations:main',
-            'ocrd-pixel-classifier=pagesegmentation.scripts.predict:main',
+            'ocr4all-pixel-classifier=ocr4all_pixel_classifier.scripts.main:main',
+            'page-segmentation=ocr4all_pixel_classifier.scripts.main:main',  # legacy
         ],
     },
     install_requires=open("requirements.txt").read().split(),
     extras_require={
         'tf_cpu': ['tensorflow>=1.13.0,!=1.14.0,!=2.0.0'],
         'tf_gpu': ['tensorflow-gpu>=1.13.0,!=1.14.0,!=2.0.0'],
-},
+    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "License :: OSI Approved :: Apache Software License",
+        "Intended Audience :: Science/Research",
+        "Topic :: Scientific/Engineering :: Image Recognition"
+
+    ],
     keywords=['OCR', 'page segmentation', 'pixel classifier'],
     data_files=[('', ["requirements.txt"])],
 )

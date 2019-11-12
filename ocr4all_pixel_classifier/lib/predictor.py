@@ -6,8 +6,8 @@ import skimage.io as img_io
 from dataclasses import dataclass
 from skimage.transform import resize
 
-from pagesegmentation.lib.dataset import Dataset, SingleData
-from pagesegmentation.lib.network import Network, tf_backend_allow_growth
+from ocr4all_pixel_classifier.lib.dataset import Dataset, SingleData
+from ocr4all_pixel_classifier.lib.network import Network, tf_backend_allow_growth
 
 
 class Prediction(NamedTuple):
@@ -101,7 +101,7 @@ class Predictor:
 
 
     def generate_output_masks(self, data, pred):
-        from pagesegmentation.lib.dataset import label_to_colors
+        from ocr4all_pixel_classifier.lib.dataset import label_to_colors
         color_mask = label_to_colors(pred, colormap=self.settings.color_map)
         foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
         inv_binary = data.binary
@@ -118,8 +118,8 @@ class Predictor:
 
 
 if __name__ == "__main__":
-    from pagesegmentation.lib.dataset import DatasetLoader
-    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+    from ocr4all_pixel_classifier.lib.dataset import DatasetLoader
+    from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
     import os
 
     dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'

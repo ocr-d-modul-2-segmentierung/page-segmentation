@@ -1,11 +1,11 @@
-# Page Segmentation
+# OCR4All Pixel Classifier
 
 ## Requirements
 
 Python dependencies are specified in `requirements.txt` / `setup.py`.
 
-You must install the package via pip with either `page_segmentation[tf_cpu]` to
-use CPU version of tensorflow or `page_segmentation[tf_gpu]` to use GPU (CUDA)
+You must install the package via pip with either `ocr4all_pixel_classifier[tf_cpu]` to
+use CPU version of tensorflow or `ocr4all_pixel_classifier[tf_gpu]` to use GPU (CUDA)
 version of tensorflow. For the latter, your system should be set up with CUDA 9
 and CuDNN 7.
 
@@ -15,16 +15,16 @@ and CuDNN 7.
 
 #### Classification
 
-To run a model on some input images, use `page-segmentation predict`:
+To run a model on some input images, use `ocr4all-pixel-classifier predict`:
 
 ```sh
-page-segmentation predict --load PATH_TO_MODEL \
+ocr4all-pixel-classifier predict --load PATH_TO_MODEL \
 	--output OUTPUT_PATH \
 	--binary PATH_TO_BINARY_IMAGES \
 	--images PATH_TO_SOURCE_IMAGES \
 	--norm PATH_TO_NORMALIZATIONS
 ```
-(`ocrd_pixel_classifier` is an alias for `page-segmentation predict`)
+(`ocr4all-pixel-classifier` is an alias for `ocr4all-pixel-classifier predict`)
 
 This will create three folders at the output path:
 - `color`: the classification as color image, with pixel color corresponding to
@@ -66,14 +66,14 @@ class). Furthermore, the line height of the page in pixels must be specified:
 }
 ```
 
-The generation of dataset files can be automated using `page-segmentation
+The generation of dataset files can be automated using `ocr4all-pixel-classifier
 create-dataset-file`. Refer to the command's `--help` output for further
 information.
 
 To start the training:
 
 ```sh
-page-segmentation train \
+ocr4all-pixel-classifier train \
     --train DATASET_FILE.json --test DATASET_FILE.json --eval DATASET_FILE.json \
     --output MODEL_TARGET_PATH \
     --n_iter 5000
@@ -81,7 +81,7 @@ page-segmentation train \
 The parameters `--train`, `--test` and `--eval` may be followed by any number of
 dataset files or patterns (shell globbing).
 
-Refer to `page-segmentation train --help` for further parameters provided to
+Refer to `ocr4all-pixel-classifier train --help` for further parameters provided to
 affect the training procedure.
 
 You can combine several dataset files into a _split file_. The format of the
@@ -105,7 +105,7 @@ split file is:
 ```
 To use a split file, add the `--split_file` parameter.
 
-### `page-segmentation compute-image-normalizations` / `ocrd_compute_normalizations`
+### `ocr4all-pixel-classifier compute-image-normalizations` / `ocrd_compute_normalizations`
 
 Calculate image normalizations, i.e. scaling factors based on average line
 height.

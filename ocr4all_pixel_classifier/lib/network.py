@@ -1,13 +1,13 @@
 import tensorflow as tf
 import numpy as np
 from typing import Optional
-from pagesegmentation.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
-from pagesegmentation.lib.trainer import TrainSettings, AugmentationSettings
-from pagesegmentation.lib.util import image_to_batch, gray_to_rgb
+from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
+from ocr4all_pixel_classifier.lib.trainer import TrainSettings, AugmentationSettings
+from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData
 import os
 import logging
-from pagesegmentation.lib.model import Optimizers, Architecture
+from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +66,10 @@ class Network:
                         '--n_classes', str(n_classes), '--l_rate', str(l_rate)
                         ])
 
-        from pagesegmentation.lib.metrics import accuracy, loss, dice_coef, \
+        from ocr4all_pixel_classifier.lib.metrics import accuracy, loss, dice_coef, \
             fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
             , categorical_focal_loss
-        from pagesegmentation.lib.layers import GraytoRgb
+        from ocr4all_pixel_classifier.lib.layers import GraytoRgb
 
         try:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
@@ -124,7 +124,7 @@ class Network:
                 if self.foreground_masks:
                     m[b != 1] = 0
                 if self.type == 'train' and data_augmentation:
-                    from pagesegmentation.lib.data_generator import ImageDataGeneratorCustom
+                    from ocr4all_pixel_classifier.lib.data_generator import ImageDataGeneratorCustom
                     image_gen = ImageDataGeneratorCustom(**data_augmentation_settings._asdict(),
                                                          fill_mode='nearest',
                                                          data_format='channels_last',
@@ -198,7 +198,7 @@ class Network:
             early_stop_cb = None
 
         if setting.tensorboard:
-            from pagesegmentation.lib.callback import ModelDiagnoser
+            from ocr4all_pixel_classifier.lib.callback import ModelDiagnoser
             import pathlib
             import datetime
             now = datetime.datetime.today()

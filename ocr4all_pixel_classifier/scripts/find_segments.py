@@ -9,10 +9,10 @@ from typing import Tuple, Optional, List, Callable
 import cv2
 import numpy as np
 
-from pagesegmentation.lib.dataset import SingleData
-from pagesegmentation.lib.pc_segmentation import find_segments
-from pagesegmentation.lib.predictor import PredictSettings, Predictor, Masks
-from pagesegmentation.scripts.compute_image_normalizations import compute_char_height
+from ocr4all_pixel_classifier.lib.dataset import SingleData
+from ocr4all_pixel_classifier.lib.pc_segmentation import find_segments
+from ocr4all_pixel_classifier.lib.predictor import PredictSettings, Predictor, Masks
+from ocr4all_pixel_classifier.scripts.compute_image_normalizations import compute_char_height
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 

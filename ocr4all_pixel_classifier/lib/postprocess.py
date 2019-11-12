@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from pagesegmentation.lib.dataset import SingleData
+from ocr4all_pixel_classifier.lib.dataset import SingleData
 
 
 def vote_connected_component_class(pred: np.ndarray, data: SingleData) -> np.ndarray:

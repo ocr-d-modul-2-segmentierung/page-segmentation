@@ -22,12 +22,12 @@ def migrate_model(path_to_meta, n_classes, l_rate, output_path):
             for var in vars_global:
                 model_vars[var.name] = var.eval()
 
-        from pagesegmentation.lib.metrics import fgpa, accuracy, loss
+        from ocr4all_pixel_classifier.lib.metrics import fgpa, accuracy, loss
 
         input_image = tf.keras.layers.Input((None, None, 1))
         input_binary = tf.keras.layers.Input((None, None, 1))
 
-        from pagesegmentation.lib.model import model_fcn_skip
+        from ocr4all_pixel_classifier.lib.model import model_fcn_skip
         model = model_fcn_skip([input_image], n_classes)
         optimizer = tf.keras.optimizers.Adam(lr=l_rate)
         model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])

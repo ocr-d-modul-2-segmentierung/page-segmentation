@@ -5,32 +5,32 @@ import importlib
 
 commands = {
     'train': {
-        'script': 'pagesegmentation.scripts.train',
+        'script': 'ocr4all_pixel_classifier.scripts.train',
         'main': 'main',
         'help': 'Train the neural network. See more via "* train --help"'
     },
     'predict': {
-        'script': 'pagesegmentation.scripts.predict',
+        'script': 'ocr4all_pixel_classifier.scripts.predict',
         'main': 'main',
         'help': 'Predict a result with the neural network. See more via "* predict --help"'
     },
     'predict-json': {
-        'script': 'pagesegmentation.scripts.predict_json',
+        'script': 'ocr4all_pixel_classifier.scripts.predict_json',
         'main': 'main',
         'help': 'Predict a result with the neural network, input via JSON. See more via "* predict --help"'
     },
     'create-dataset-file': {
-        'script': 'pagesegmentation.scripts.create_dataset_file',
+        'script': 'ocr4all_pixel_classifier.scripts.create_dataset_file',
         'main': 'main',
         'help': 'Create a dataset file'
     },
     'compute-image-normalizations': {
-        'script': 'pagesegmentation.scripts.compute_image_normalizations',
+        'script': 'ocr4all_pixel_classifier.scripts.compute_image_normalizations',
         'main': 'main',
         'help': 'Compute image normalizations'
     },
     'compute-image-map': {
-        'script': 'pagesegmentation.scripts.generate_image_map',
+        'script': 'ocr4all_pixel_classifier.scripts.generate_image_map',
         'main': 'main',
         'help': 'Generates color map'
     },

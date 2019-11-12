@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
-from pagesegmentation.lib.util import image_to_batch, gray_to_rgb
+from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 
 
 class TrainProgressCallback(tf.keras.callbacks.Callback):
@@ -79,7 +79,7 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
         self.color_map = color_map
 
     def on_epoch_end(self, epoch, logs=None):
-        from pagesegmentation.lib.dataset import label_to_colors
+        from ocr4all_pixel_classifier.lib.dataset import label_to_colors
         total_steps = int(np.ceil(np.divide(self.num_samples, self.batch_size)))
         sample_index = 0
         while sample_index < total_steps:

@@ -66,7 +66,7 @@ def pc_segment_main(orig_image: str, inverted_image: str, char_height: int, outp
         raise SystemExit()
 
     # Get image name
-    from pagesegmentation.scripts.find_segments import split_filename
+    from ocr4all_pixel_classifier.scripts.find_segments import split_filename
     _, image_basename, image_ext = split_filename(orig_image)
     if image_basename == "" or image_ext == "":
         print("Error: New image name could not be determined", file=sys.stderr)

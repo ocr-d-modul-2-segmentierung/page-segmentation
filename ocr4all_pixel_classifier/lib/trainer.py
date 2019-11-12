@@ -1,8 +1,8 @@
-from pagesegmentation.lib.dataset import Dataset
-from pagesegmentation.lib.callback import TrainProgressCallback
+from ocr4all_pixel_classifier.lib.dataset import Dataset
+from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback
 from typing import NamedTuple, Optional, List
-from pagesegmentation.lib.metrics import Loss, Monitor
-from pagesegmentation.lib.model import Architecture, Optimizers
+from ocr4all_pixel_classifier.lib.metrics import Loss, Monitor
+from ocr4all_pixel_classifier.lib.model import Architecture, Optimizers
 import numpy as np
 import logging
 import tensorflow as tf
@@ -77,10 +77,10 @@ class Trainer:
         tf.keras.backend.clear_session()
 
         if settings.gpu_allow_growth:
-            from pagesegmentation.lib.network import tf_backend_allow_growth
+            from ocr4all_pixel_classifier.lib.network import tf_backend_allow_growth
             tf_backend_allow_growth()
 
-        from pagesegmentation.lib.network import Network
+        from ocr4all_pixel_classifier.lib.network import Network
         self.train_net = Network("train", settings.n_classes, settings.architecture,
                                  l_rate=settings.l_rate,
                                  foreground_masks=settings.foreground_masks, model=settings.load,
@@ -126,8 +126,8 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    from pagesegmentation.lib.dataset import DatasetLoader
-    from pagesegmentation.scripts.generate_image_map import load_image_map_from_file
+    from ocr4all_pixel_classifier.lib.dataset import DatasetLoader
+    from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
     import os
 
     dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'
