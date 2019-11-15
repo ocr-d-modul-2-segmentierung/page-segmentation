@@ -41,7 +41,7 @@ def migrate_model(path_to_meta, n_classes, l_rate, output_path):
         model.save(output_path)
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -54,3 +54,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_classes", required=True, type=int)
     args = parser.parse_args()
     migrate_model(args.meta_path, args.n_classes, args.l_rate, args.output_path)
+
+
+if __name__ == "__main__":
+    main()

@@ -17,8 +17,8 @@ from ocr4all_pixel_classifier.scripts.compute_image_normalizations import comput
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 DEFAULT_IMAGE_MAP = {(255, 255, 255): [0, 'bg'],
-             (255, 0, 0): [1, 'text'],
-             (0, 255, 0): [2, 'image']}
+                     (255, 0, 0): [1, 'text'],
+                     (0, 255, 0): [2, 'image']}
 
 DEFAULT_REVERSE_IMAGE_MAP = {v[1]: np.array(k) for k, v in DEFAULT_IMAGE_MAP.items()}
 

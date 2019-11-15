@@ -2,7 +2,7 @@ import argparse
 import json
 from os import path
 from typing import List
-from pagesegmentation.lib.model import Architecture
+from ocr4all_pixel_classifier.lib.model import Architecture
 
 # remove when tensorflow#30559 is merged in 1.14.1
 import warnings

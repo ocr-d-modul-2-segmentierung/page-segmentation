@@ -34,6 +34,11 @@ commands = {
         'main': 'main',
         'help': 'Generates color map'
     },
+    'migrate-model': {
+        'script': 'ocr4all_pixel_classifier.scripts.migrate_model',
+        'main': 'main',
+        'help': 'Convert old model to new format'
+    },
 }
 
 
