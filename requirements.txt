@@ -2,6 +2,6 @@ numpy
 scipy
 scikit-image
 tqdm
-opencv-python
+opencv-python-headless
 dataclasses
 efficientnet
