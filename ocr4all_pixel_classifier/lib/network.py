@@ -99,18 +99,19 @@ class Network:
                     _optimizer = optimizer(lr=l_rate, clipvalue=optimizer_clip_value)
                 else:
                     _optimizer = optimizer(lr=l_rate)
-
             if self.type == "train":
                 self.model.compile(optimizer=_optimizer, loss=loss_func(), metrics=[accuracy, jacard_coef, dice_coef])
 
             if model:
                 self.model.load_weights(model)
 
-    def create_dataset_inputs(self, train_data, data_augmentation=True,
-                              data_augmentation_settings: AugmentationSettings = AugmentationSettings()):
+    def create_dataset_inputs(self, train_data: Dataset, data_augmentation=True,
+                              data_augmentation_settings: AugmentationSettings = AugmentationSettings(), shuffle=False):
         preprocess, rgb = Architecture(self.architecture).preprocess()
-
+        train_data = train_data.data
         while True:
+            if self.type == 'train' and shuffle:
+                np.random.shuffle(train_data)
             for data_idx, d in enumerate(train_data):
                 b, i, m = d.binary, d.image, d.mask
 
@@ -174,8 +175,8 @@ class Network:
 
         import os
         callbacks = []
-        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation)
-        test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
+        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation, shuffle=True)
+        test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
 
         os.makedirs(setting.output_dir, exist_ok=True)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
@@ -197,7 +198,7 @@ class Network:
         else:
             early_stop_cb = None
 
-        if setting.tensorboard:
+        if setting.tensorboard and setting.validation_data is not None:
             from ocr4all_pixel_classifier.lib.callback import ModelDiagnoser
             import pathlib
             import datetime
@@ -206,8 +207,7 @@ class Network:
                 setting.output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
             pathlib.Path(output).mkdir(parents=True,
                                        exist_ok=True)
-            callback_gen = self.create_dataset_inputs(setting.validation_data,
-                                                      data_augmentation=False)
+            callback_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
 
             diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
                                          1,  # batch_size
@@ -237,12 +237,11 @@ class Network:
                 callback,
                 early_stop_cb,
             ))
-
-        fg = self.model.fit(train_gen,
+        fg = self.model.fit(x=train_gen,
                             epochs=setting.n_epoch,
                             steps_per_epoch=len(setting.train_data),
                             use_multiprocessing=False,
-                            validation_steps=len(setting.validation_data),
+                            validation_steps=len(setting.validation_data) if setting.validation_data is not None else None,
                             validation_data=test_gen,
                             callbacks=callbacks)
         return fg
