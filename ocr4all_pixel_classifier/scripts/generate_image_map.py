@@ -7,7 +7,7 @@ import os
 import tqdm
 from PIL import Image
 import itertools
-
+import random
 
 def get_image_colors(path_to_mask: np.array):
     image_pil = Image.open(path_to_mask)
@@ -25,15 +25,15 @@ def get_image_colors(path_to_mask: np.array):
     return colors
 
 
-def compute_image_map(input_dir, output_dir):
+def compute_image_map(input_dir, output_dir, max_images=-1, processes=4):
     if not os.path.exists(input_dir):
         raise Exception("Cannot open {}".format(input_dir))
-
     files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
 
-    # files = files[:10]
+    if max_images > 0:
+        files = random.sample(files, max_images)
 
-    with multiprocessing.Pool(processes=1) as p:
+    with multiprocessing.Pool(processes=processes) as p:
         colors = [v for v in
                         tqdm.tqdm(p.imap(get_image_colors, files), total=len(files))
                         ]
@@ -63,9 +63,12 @@ def main():
                         help="Mask directory to process")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="The output dir for the color map")
-
+    parser.add_argument("--max_image", type=int, default=-1,
+                        help="Max images to check for color. -1 to check every mask")
+    parser.add_argument("--processes", type=int, default=4,
+                        help="Number of processes to run")
     args = parser.parse_args()
-    compute_image_map(args.input_dir, args.output_dir)
+    compute_image_map(args.input_dir, args.output_dir, args.max_image, args.processes)
 
 
 if __name__ == '__main__':

@@ -69,6 +69,7 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
         def filenames(fn, postfix=None):
             if postfix and len(postfix) > 0:
                 fn = [f[:-len(postfix)] if f.endswith(postfix) else f for f in fn]
+                return {os.path.basename(f).split('.')[0] : f+postfix for f in fn}
 
             x = {os.path.basename(f).split('.')[0] : f for f in fn}
             return x
@@ -133,10 +134,11 @@ def label_to_colors(mask, colormap: dict):
 
 
 class DatasetLoader:
-    def __init__(self, target_line_height, color_map, prediction=False, ):
+    def __init__(self, target_line_height, color_map, prediction=False, max_width=None):
         self.target_line_height = target_line_height
         self.prediction = prediction
         self.color_map = color_map
+        self.max_width = max_width
 
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
         scale = self.target_line_height / dataset_file_entry.line_height_px
@@ -160,6 +162,10 @@ class DatasetLoader:
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
         bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False) / 255
         img = 1.0 - resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True) / 255
+        n_scale = self.max_width / img.shape[1]
+        if n_scale <= 1.0 and self.max_width is not None:
+            bin = rescale(bin, n_scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False)
+            img = resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True)
         scaled_shape = img.shape
 
         # color
@@ -191,10 +197,8 @@ class DatasetLoader:
 
     def load_data_from_json(self, files, type) -> Dataset:
         all_files = []
-        print(files)
         for f in files:
             all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
-
         print("Loading {} data of type {}".format(len(all_files), type))
         return self.load_data(all_files)
 

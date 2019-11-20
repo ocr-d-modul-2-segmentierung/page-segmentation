@@ -116,12 +116,12 @@ class Trainer:
 
     def eval(self) -> None:
         if self.settings.evaluation_data is None:
-            logger.warning('Evaluation Dataset in Trainsetting not set! ')
+            logger.info('Evaluation Dataset in Trainsetting not set! ')
             return
         if len(self.settings.evaluation_data) > 0:
             self.train_net.evaluate_dataset(self.settings.evaluation_data)
         else:
-            logger.log(self.train_net.evaluate_dataset(self.settings.validation_data))
+            logger.info('Empty Dataset. Skipping Evaluation')
 
 
 
