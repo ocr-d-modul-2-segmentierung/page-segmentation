@@ -16,14 +16,23 @@ ColorMapping = Dict[str, np.ndarray]
 
 @dataclass
 class Segment:
-    y_start: int
-    y_end: int
     x_start: int
+    y_start: int
     x_end: int
+    y_end: int
     done: bool = False
 
     def of(self, image: np.ndarray):
         return image[self.y_start:self.y_end, self.x_start:self.x_end]
+
+    def scale(self, factor: float):
+        return Segment(
+            x_start=int(self.x_start * factor),
+            y_start=int(self.y_start * factor),
+            x_end=int(self.x_end * factor),
+            y_end=int(self.y_end * factor),
+            done=self.done
+        )
 
 
 @dataclass
@@ -94,7 +103,7 @@ def pc_segment_main(orig_image: str, inverted_image: str, char_height: int, outp
         write_images(image, output_dir, output_name, segments_image, segments_text, color_mapping)
 
     # Write PageXML
-    create_page_xml(orig_image, orig_width, orig_height, resize_height, segments_text, segments_image,
+    create_page_xml(orig_image, orig_width, orig_height, segments_text, segments_image,
                     os.path.join(output_dir, "clip_" + image_basename + image_ext + ".xml"))
 
     # Create an image for each text segment for OCR
@@ -119,13 +128,16 @@ def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_
     split_size_horizontal = int(char_height * 2 * absolute_resize_factor)
     split_size_vertical = int(char_height * absolute_resize_factor)
 
+    def scale_all(segments, factor):
+        return [seg.scale(factor) for seg in segments]
+
     # Calculate x-y-cut and get its segments
     segments_text = get_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
                                split_size_vertical, color_mapping["text"])
     segments_image = get_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
                                 split_size_vertical, color_mapping["image"])
 
-    return segments_text, segments_image
+    return scale_all(segments_text, 1.0 / scale_percent), scale_all(segments_image, 1.0 / scale_percent)
 
 
 def write_images(image: np.ndarray, output_dir: str, output_name: str,
@@ -233,20 +245,17 @@ def get_xy_cut(image: np.ndarray,
     return segments_new
 
 
-def get_xml_point_string(segment: Segment, coord_factor: float):
-    return " ".join(["{:.0f},{:.0f}"] * 4).format(*[x * coord_factor for x in [
+def get_xml_point_string(segment: Segment):
+    return " ".join(["{:.0f},{:.0f}"] * 4).format(
         segment.x_start, segment.y_start,
         segment.x_end, segment.y_start,
         segment.x_end, segment.y_end,
-        segment.x_start, segment.y_end,
-    ]])
+        segment.x_start, segment.y_end
+    )
 
 
-def create_page_xml(filename: str, width: int, height: int, resize_height: int,
-                    segments_text: List[Segment], segments_image: List[Segment],
+def create_page_xml(filename: str, width: int, height: int, segments_text: List[Segment], segments_image: List[Segment],
                     outfile: str):
-    coord_factor = height / resize_height
-
     pcgts = ET.Element("PcGts", {
         "xmlns": "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15",
         "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
@@ -270,11 +279,11 @@ def create_page_xml(filename: str, width: int, height: int, resize_height: int,
     count = 0
     for segment in segments_text:
         region = ET.SubElement(page, "TextRegion", {"id": "r" + str(count), "type": "paragraph"})
-        coords = ET.SubElement(region, "Coords", {"points": get_xml_point_string(segment, coord_factor)})
+        coords = ET.SubElement(region, "Coords", {"points": get_xml_point_string(segment)})
         count += 1
     for segment in segments_image:
         region = ET.SubElement(page, "GraphicRegion", {"id": "r" + str(count)})
-        coords = ET.SubElement(region, "Coords", {"points": get_xml_point_string(segment, coord_factor)})
+        coords = ET.SubElement(region, "Coords", {"points": get_xml_point_string(segment)})
         count += 1
 
     tree = ET.ElementTree(pcgts)
