@@ -20,6 +20,41 @@ class AugmentationSettings(NamedTuple):
     vertical_flip: bool = False
     brightness_range: List[float] = [0.95, 1.05]
 
+    image_fill_mode: str = 'nearest'
+    binary_fill_mode: str = 'nearest'
+    mask_fill_mode: str = 'nearest'
+    image_cval: int = 0
+    binary_cval: int = 0
+    mask_cval: int = 0
+
+    def to_params(self, interp: int, fill_mode: str, cval: float):
+        return {
+            'rotation_range': self.rotation_range,
+            'width_shift_range': self.width_shift_range,
+            'height_shift_range': self.height_shift_range,
+            'shear_range': self.shear_range,
+            'zoom_range': self.zoom_range,
+            'horizontal_flip': self.horizontal_flip,
+            'vertical_flip': self.vertical_flip,
+            'brightness_range': self.brightness_range,
+            'interpolation_order': interp,
+            'fill_mode': fill_mode,
+            'cval': cval,
+        }
+
+    def to_image_params(self):
+        return self.to_params(1, self.image_fill_mode, self.image_cval)
+
+    def to_binary_params(self):
+        params = self.to_params(0, self.binary_fill_mode, self.binary_cval)
+        del params['brightness_range']
+        return params
+
+    def to_mask_params(self):
+        params = self.to_params(0, self.mask_fill_mode, self.mask_cval)
+        del params['brightness_range']
+        return params
+
 
 class TrainSettings(NamedTuple):
     n_epoch: int
