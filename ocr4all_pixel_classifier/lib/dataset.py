@@ -162,10 +162,11 @@ class DatasetLoader:
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
         bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False) / 255
         img = 1.0 - resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True) / 255
-        n_scale = self.max_width / img.shape[1]
-        if n_scale <= 1.0 and self.max_width is not None:
-            bin = rescale(bin, n_scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False)
-            img = resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True)
+        if self.max_width is not None:
+            n_scale = self.max_width / img.shape[1]
+            if n_scale <= 1.0:
+                bin = rescale(bin, n_scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False)
+                img = resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True)
         scaled_shape = img.shape
 
         # color

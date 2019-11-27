@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
+from ocr4all_pixel_classifier.lib.data_generator import DataGenerator
 
 
 class TrainProgressCallback(tf.keras.callbacks.Callback):
@@ -16,7 +17,6 @@ class TrainProgressCallback(tf.keras.callbacks.Callback):
 
 
 class TrainProgressCallbackWrapper(tf.keras.callbacks.Callback):
-
 
     def __init__(self,
                  n_iters_per_epoch: int,
@@ -70,21 +70,19 @@ class TensorboardWriter:
 
 class ModelDiagnoser(tf.keras.callbacks.Callback):
 
-    def __init__(self, data_generator, batch_size, num_samples, output_dir, color_map):
+    def __init__(self, data_generator:DataGenerator, output_dir):
         super().__init__()
         self.data_generator = data_generator
-        self.batch_size = batch_size
-        self.num_samples = num_samples
+        self.batch_size = data_generator.batch_size
+        self.num_samples = len(data_generator)
         self.tensorboard_writer = TensorboardWriter(output_dir)
-        self.color_map = color_map
+        self.color_map = self.data_generator.data_set.color_map
 
     def on_epoch_end(self, epoch, logs=None):
         from ocr4all_pixel_classifier.lib.dataset import label_to_colors
-        total_steps = int(np.ceil(np.divide(self.num_samples, self.batch_size)))
         sample_index = 0
-        while sample_index < total_steps:
-            generator_output = next(self.data_generator)
-
+        for i in range(self.num_samples):
+            generator_output = self.data_generator[i]
             x, y = generator_output
             logit = self.model.predict_on_batch(x)[0, :, :, :]
             pred = np.argmax(logit, -1)

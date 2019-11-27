@@ -8,7 +8,7 @@ from .dataset import Dataset, SingleData
 import os
 import logging
 from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
-
+from ocr4all_pixel_classifier.lib.data_generator import DataGenerator
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +49,8 @@ class Network:
 
         self.n_classes = n_classes
         preprocess, rgb = Architecture(self.architecture).preprocess()
+        self.preprocess = preprocess
+        self.rgb = rgb
         if rgb:
             self.input = tf.keras.layers.Input((None, None, 3))
         else:
@@ -105,73 +107,16 @@ class Network:
             if model:
                 self.model.load_weights(model)
 
-    def _create_data_augmentation(self, data_augmentation_settings: AugmentationSettings):
-        from ocr4all_pixel_classifier.lib.data_generator import ImageDataGeneratorCustom
-        image_gen = ImageDataGeneratorCustom(
-            **data_augmentation_settings.to_image_params(),
-            data_format='channels_last',
-        )
-
-        binary_gen = ImageDataGeneratorCustom(
-            **data_augmentation_settings.to_binary_params(),
-            data_format='channels_last',
-        )
-
-        mask_gen = ImageDataGeneratorCustom(
-            **data_augmentation_settings.to_mask_params(),
-            data_format='channels_last',
-        )
-        return image_gen, binary_gen, mask_gen
-
-    def create_dataset_inputs(self, train_data: Dataset, data_augmentation=True,
-                              data_augmentation_settings: AugmentationSettings = AugmentationSettings(), shuffle=False):
-        preprocess, rgb = Architecture(self.architecture).preprocess()
-        train_data = train_data.data
-        seed = 0
-        image_gen, binary_gen, mask_gen = self._create_data_augmentation(data_augmentation_settings)
-        while True:
-            if self.type == 'train' and shuffle:
-                np.random.shuffle(train_data)
-            for data_idx, d in enumerate(train_data):
-                b, i, m = d.binary, d.image, d.mask
-
-                if rgb:
-                    i = gray_to_rgb(i)
-
-                if b is None:
-                    b = np.full(i.shape, 1, dtype=np.uint8)
-                    assert (i.dtype == np.uint8)
-
-                if self.foreground_masks:
-                    m[b != 1] = 0
-
-                if self.type == 'train' and data_augmentation:
-                    seed += 1
-                    i_x = image_gen.flow(image_to_batch(i), seed=seed, batch_size=1)
-                    b_x = binary_gen.flow(image_to_batch(b), seed=seed, batch_size=1)
-                    m_x = mask_gen.flow(image_to_batch(m), seed=seed, batch_size=1)
-
-                    i_n = next(i_x)
-                    b_n = next(b_x)
-                    m_n = next(m_x)
-
-                    yield ({'input_1': preprocess(i_n),
-                            'input_2': b_n}), \
-                          {'logits': m_n}
-                else:
-                    yield ({'input_1': image_to_batch(preprocess(i)),
-                           'input_2': image_to_batch(b)}), \
-                          {'logits': image_to_batch(m)}
-
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
         logger.info(self.model.summary())
 
         import os
         callbacks = []
-        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation, setting.data_augmentation_settings, shuffle=True)
-        test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
-
+        train_gen = DataGenerator(setting.train_data, preprocess=self.preprocess, rgb=self.rgb, type='train', shuffle=True, foreground_mask=self.foreground_masks)#self.create_dataset_inputs(setting.train_data, setting.data_augmentation, setting.data_augmentation_settings, shuffle=True)
+        #test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
+        test_gen = DataGenerator(setting.validation_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
+                                  shuffle=False, foreground_mask=self.foreground_masks)
         os.makedirs(setting.output_dir, exist_ok=True)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
                                                                      setting.model_suffix),
@@ -201,13 +146,10 @@ class Network:
                 setting.output_dir, 'logs', now.strftime('%Y-%m-%d_%H-%M-%S'))
             pathlib.Path(output).mkdir(parents=True,
                                        exist_ok=True)
-            callback_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False)
 
-            diagnose_cb = ModelDiagnoser(callback_gen,  # data_generator
-                                         1,  # batch_size
-                                         len(setting.validation_data),  # num_samples
-                                         output,  # output_dir
-                                         setting.validation_data.color_map)  # color_map
+            callback_gen = DataGenerator(setting.validation_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
+                                     shuffle=False, foreground_mask=self.foreground_masks)
+            diagnose_cb = ModelDiagnoser(callback_gen, output)  # color_map
 
             tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
                                                          histogram_freq=1,
@@ -241,7 +183,8 @@ class Network:
         return fg
 
     def evaluate_dataset(self, eval_data):
-        eval_gen = self.create_dataset_inputs(eval_data, data_augmentation=False)
+        eval_gen = DataGenerator(eval_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
+                                  shuffle=False, foreground_mask=self.foreground_masks)
         self.model.evaluate(eval_gen, steps=len(eval_data))
 
     def predict_single_data(self, data: SingleData):

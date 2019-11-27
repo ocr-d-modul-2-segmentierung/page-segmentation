@@ -6,54 +6,8 @@ from ocr4all_pixel_classifier.lib.model import Architecture, Optimizers
 import numpy as np
 import logging
 import tensorflow as tf
-
+import albumentations as albu
 logger = logging.getLogger(__name__)
-
-
-class AugmentationSettings(NamedTuple):
-    rotation_range: float = 2.5
-    width_shift_range: float = 0.025
-    height_shift_range: float = 0.025
-    shear_range: float = 0.00
-    zoom_range: List[float] = [0.95, 1.05]
-    horizontal_flip: bool = False
-    vertical_flip: bool = False
-    brightness_range: List[float] = [0.95, 1.05]
-
-    image_fill_mode: str = 'nearest'
-    binary_fill_mode: str = 'nearest'
-    mask_fill_mode: str = 'nearest'
-    image_cval: int = 0
-    binary_cval: int = 0
-    mask_cval: int = 0
-
-    def to_params(self, interp: int, fill_mode: str, cval: float):
-        return {
-            'rotation_range': self.rotation_range,
-            'width_shift_range': self.width_shift_range,
-            'height_shift_range': self.height_shift_range,
-            'shear_range': self.shear_range,
-            'zoom_range': self.zoom_range,
-            'horizontal_flip': self.horizontal_flip,
-            'vertical_flip': self.vertical_flip,
-            'brightness_range': self.brightness_range,
-            'interpolation_order': interp,
-            'fill_mode': fill_mode,
-            'cval': cval,
-        }
-
-    def to_image_params(self):
-        return self.to_params(1, self.image_fill_mode, self.image_cval)
-
-    def to_binary_params(self):
-        params = self.to_params(0, self.binary_fill_mode, self.binary_cval)
-        del params['brightness_range']
-        return params
-
-    def to_mask_params(self):
-        params = self.to_params(0, self.mask_fill_mode, self.mask_cval)
-        del params['brightness_range']
-        return params
 
 
 class TrainSettings(NamedTuple):
@@ -66,8 +20,7 @@ class TrainSettings(NamedTuple):
     output_dir: str
     threads: int
 
-    data_augmentation: bool = False
-    data_augmentation_settings: AugmentationSettings = AugmentationSettings()
+    data_augmentation: List[albu.OneOf] = None
 
     early_stopping_max_performance_drops: int = 10
     early_stopping_restore_best_weights: bool = True
@@ -189,7 +142,7 @@ if __name__ == "__main__":
         tensorboard=True,
         early_stopping_max_performance_drops=5,
         load=None,#os.path.join(dataset_dir, 'best_model.h5')
-        architecture=Architecture.EFFNETB0
+        architecture=Architecture.FCN_SKIP
     )
 
     trainer = Trainer(settings)
