@@ -105,10 +105,30 @@ class Network:
             if model:
                 self.model.load_weights(model)
 
+    def _create_data_augmentation(self, data_augmentation_settings: AugmentationSettings):
+        from ocr4all_pixel_classifier.lib.data_generator import ImageDataGeneratorCustom
+        image_gen = ImageDataGeneratorCustom(
+            **data_augmentation_settings.to_image_params(),
+            data_format='channels_last',
+        )
+
+        binary_gen = ImageDataGeneratorCustom(
+            **data_augmentation_settings.to_binary_params(),
+            data_format='channels_last',
+        )
+
+        mask_gen = ImageDataGeneratorCustom(
+            **data_augmentation_settings.to_mask_params(),
+            data_format='channels_last',
+        )
+        return image_gen, binary_gen, mask_gen
+
     def create_dataset_inputs(self, train_data: Dataset, data_augmentation=True,
                               data_augmentation_settings: AugmentationSettings = AugmentationSettings(), shuffle=False):
         preprocess, rgb = Architecture(self.architecture).preprocess()
         train_data = train_data.data
+        seed = 0
+        image_gen, binary_gen, mask_gen = self._create_data_augmentation(data_augmentation_settings)
         while True:
             if self.type == 'train' and shuffle:
                 np.random.shuffle(train_data)
@@ -116,44 +136,17 @@ class Network:
                 b, i, m = d.binary, d.image, d.mask
 
                 if rgb:
-
                     i = gray_to_rgb(i)
 
                 if b is None:
                     b = np.full(i.shape, 1, dtype=np.uint8)
                     assert (i.dtype == np.uint8)
+
                 if self.foreground_masks:
                     m[b != 1] = 0
+
                 if self.type == 'train' and data_augmentation:
-                    from ocr4all_pixel_classifier.lib.data_generator import ImageDataGeneratorCustom
-                    image_gen = ImageDataGeneratorCustom(**data_augmentation_settings._asdict(),
-                                                         fill_mode='nearest',
-                                                         data_format='channels_last',
-                                                         interpolation_order=1)
-
-                    binary_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
-                                                          width_shift_range=data_augmentation_settings.width_shift_range,
-                                                          height_shift_range=data_augmentation_settings.height_shift_range,
-                                                          shear_range=data_augmentation_settings.shear_range,
-                                                          zoom_range=data_augmentation_settings.zoom_range,
-                                                          horizontal_flip=data_augmentation_settings.horizontal_flip,
-                                                          vertical_flip=data_augmentation_settings.vertical_flip,
-                                                          fill_mode='nearest',
-                                                          data_format='channels_last',
-                                                          interpolation_order=0)
-
-                    mask_gen = ImageDataGeneratorCustom(rotation_range=data_augmentation_settings.rotation_range,
-                                                        width_shift_range=data_augmentation_settings.width_shift_range,
-                                                        height_shift_range=data_augmentation_settings.height_shift_range,
-                                                        shear_range=data_augmentation_settings.shear_range,
-                                                        zoom_range=data_augmentation_settings.zoom_range,
-                                                        horizontal_flip=data_augmentation_settings.horizontal_flip,
-                                                        vertical_flip=data_augmentation_settings.vertical_flip,
-                                                        fill_mode='nearest',
-                                                        data_format='channels_last',
-                                                        interpolation_order=0,
-                                                        )
-                    seed = np.random.randint(0, 9999999)
+                    seed += 1
                     i_x = image_gen.flow(image_to_batch(i), seed=seed, batch_size=1)
                     b_x = binary_gen.flow(image_to_batch(b), seed=seed, batch_size=1)
                     m_x = mask_gen.flow(image_to_batch(m), seed=seed, batch_size=1)
@@ -161,6 +154,7 @@ class Network:
                     i_n = next(i_x)
                     b_n = next(b_x)
                     m_n = next(m_x)
+
                     yield ({'input_1': preprocess(i_n),
                             'input_2': b_n}), \
                           {'logits': m_n}
@@ -175,7 +169,7 @@ class Network:
 
         import os
         callbacks = []
-        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation, shuffle=True)
+        train_gen = self.create_dataset_inputs(setting.train_data, setting.data_augmentation, setting.data_augmentation_settings, shuffle=True)
         test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
 
         os.makedirs(setting.output_dir, exist_ok=True)
