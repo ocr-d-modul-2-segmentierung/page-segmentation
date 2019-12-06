@@ -18,7 +18,7 @@ class AugmentationSettings(NamedTuple):
     zoom_range: List[float] = [0.95, 1.05]
     horizontal_flip: bool = False
     vertical_flip: bool = False
-    brightness_range: List[float] = [0.95, 1.05]
+    brightness_range: Optional[List[float]] = None
 
     image_fill_mode: str = 'nearest'
     binary_fill_mode: str = 'nearest'
@@ -43,7 +43,7 @@ class AugmentationSettings(NamedTuple):
         }
 
     def to_image_params(self):
-        return self.to_params(1, self.image_fill_mode, self.image_cval)
+        return self.to_params(3, self.image_fill_mode, self.image_cval)
 
     def to_binary_params(self):
         params = self.to_params(0, self.binary_fill_mode, self.binary_cval)
