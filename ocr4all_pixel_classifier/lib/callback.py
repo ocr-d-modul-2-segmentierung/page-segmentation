@@ -3,7 +3,7 @@ import tensorflow as tf
 import os
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from ocr4all_pixel_classifier.lib.data_generator import DataGenerator
-
+import matplotlib.pyplot as plt
 
 class TrainProgressCallback(tf.keras.callbacks.Callback):
     def init(self, total_iters, early_stopping_iters):
@@ -99,7 +99,16 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
                                                    .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(color_mask)))
             self.tensorboard_writer.save_image("{}/Overlay"
                                                    .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(inverted_overlay_mask)))
-
+            n0, n1, n2 = np.shape(logit)
+            for i in range(n2):
+                image = logit[:,:,i]
+                image -= np.min(image)  # ensure the minimal value is 0.0
+                image /= np.max(image)  # maximum value in image is now 1.0
+                cm = plt.get_cmap('jet')
+                cmap = cm(image)
+                self.tensorboard_writer.save_image("{}/Heatmap: Class: {}"
+                                                   .format(sample_index, i),
+                                                   tf.convert_to_tensor(image_to_batch(cmap)))
             sample_index += 1
 
     def on_train_end(self, logs=None):

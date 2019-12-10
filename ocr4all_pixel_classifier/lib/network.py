@@ -2,13 +2,14 @@ import tensorflow as tf
 import numpy as np
 from typing import Optional
 from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
-from ocr4all_pixel_classifier.lib.trainer import TrainSettings, AugmentationSettings
+from ocr4all_pixel_classifier.lib.trainer import TrainSettings
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData
 import os
 import logging
 from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
 from ocr4all_pixel_classifier.lib.data_generator import DataGenerator
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +70,7 @@ class Network:
                         ])
 
         from ocr4all_pixel_classifier.lib.metrics import accuracy, loss, dice_coef, \
-            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
+            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical \
             , categorical_focal_loss
         from ocr4all_pixel_classifier.lib.layers import GraytoRgb
 
@@ -81,7 +82,7 @@ class Network:
                                                                            'jacard_coef_loss': jacard_coef_loss,
                                                                            'dice_and_categorical': dice_and_categorical,
                                                                            'categorical_hinge': categorical_hinge,
-                                                                           'categorical_focal_loss':categorical_focal_loss,
+                                                                           'categorical_focal_loss': categorical_focal_loss,
                                                                            'GraytoRgb': GraytoRgb})
         except Exception as e:
             if model and continue_training:
@@ -113,10 +114,13 @@ class Network:
 
         import os
         callbacks = []
-        train_gen = DataGenerator(setting.train_data, preprocess=self.preprocess, rgb=self.rgb, type='train', shuffle=True, foreground_mask=self.foreground_masks)#self.create_dataset_inputs(setting.train_data, setting.data_augmentation, setting.data_augmentation_settings, shuffle=True)
-        #test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
+        train_gen = DataGenerator(setting.train_data, preprocess=self.preprocess, rgb=self.rgb, type='train',
+                                  shuffle=True, foreground_mask=self.foreground_masks)
+
+        # self.create_dataset_inputs(setting.train_data, setting.data_augmentation, setting.data_augmentation_settings, shuffle=True)
+        # test_gen = self.create_dataset_inputs(setting.validation_data, data_augmentation=False) if setting.validation_data is not None else None
         test_gen = DataGenerator(setting.validation_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
-                                  shuffle=False, foreground_mask=self.foreground_masks)
+                                 shuffle=False, foreground_mask=self.foreground_masks)
         os.makedirs(setting.output_dir, exist_ok=True)
         checkpoint = tf.keras.callbacks.ModelCheckpoint(os.path.join(setting.output_dir, setting.model_name +
                                                                      setting.model_suffix),
@@ -148,7 +152,7 @@ class Network:
                                        exist_ok=True)
 
             callback_gen = DataGenerator(setting.validation_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
-                                     shuffle=False, foreground_mask=self.foreground_masks)
+                                         shuffle=False, foreground_mask=self.foreground_masks)
             diagnose_cb = ModelDiagnoser(callback_gen, output)  # color_map
 
             tensorboard = tf.keras.callbacks.TensorBoard(log_dir=output + '/logs',
@@ -175,16 +179,14 @@ class Network:
             ))
         fg = self.model.fit(x=train_gen,
                             epochs=setting.n_epoch,
-                            steps_per_epoch=len(setting.train_data),
                             use_multiprocessing=False,
-                            validation_steps=len(setting.validation_data) if setting.validation_data is not None else None,
                             validation_data=test_gen,
                             callbacks=callbacks)
         return fg
 
     def evaluate_dataset(self, eval_data):
         eval_gen = DataGenerator(eval_data, preprocess=self.preprocess, rgb=self.rgb, type='test',
-                                  shuffle=False, foreground_mask=self.foreground_masks)
+                                 shuffle=False, foreground_mask=self.foreground_masks)
         self.model.evaluate(eval_gen, steps=len(eval_data))
 
     def predict_single_data(self, data: SingleData):
@@ -196,7 +198,7 @@ class Network:
             image = gray_to_rgb(image)
         preprocessed_image = preprocess(image)
         logit = self.model.predict_on_batch([image_to_batch(preprocessed_image),
-                                   image_to_batch(data.binary)])[0, :, :, :]
+                                             image_to_batch(data.binary)])[0, :, :, :]
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)
         return logit, prob, pred

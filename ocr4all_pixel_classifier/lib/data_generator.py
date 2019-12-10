@@ -29,7 +29,7 @@ class DataGenerator(keras.utils.Sequence):
         return int(np.floor(len(self.data_set.data) / self.batch_size))
 
     def __getitem__(self, index):
-        data = self.data_set.data[index*self.batch_size:(index+1)*self.batch_size]
+        data = self.data_set.data[index * self.batch_size:(index + 1) * self.batch_size]
         image_batch, mask_batch, binary_batch = [], [], []
 
         for x in data:
@@ -53,11 +53,19 @@ class DataGenerator(keras.utils.Sequence):
                 mask_batch.append(mask)
                 binary_batch.append(binary)
 
-        image = np.asarray(image_batch) if np.asarray(image_batch).ndim == 4 else np.expand_dims(np.asarray(image_batch), axis=-1)
-        binary = np.asarray(binary_batch) if np.asarray(binary_batch).ndim == 4 else np.expand_dims(np.asarray(binary_batch), axis=-1)
-        mask = np.asarray(mask_batch) if np.asarray(mask_batch).ndim == 4 else np.expand_dims(np.asarray(mask_batch), axis=-1)
+        image = np.asarray(image_batch) if np.asarray(image_batch).ndim == 4 else np.expand_dims(
+            np.asarray(image_batch), axis=-1)
+        binary = np.asarray(binary_batch) if np.asarray(binary_batch).ndim == 4 else np.expand_dims(
+            np.asarray(binary_batch), axis=-1)
+        mask = np.asarray(mask_batch) if np.asarray(mask_batch).ndim == 4 else np.expand_dims(np.asarray(mask_batch),
+                                                                                              axis=-1)
 
         return ({'input_1': self.preprocess(image), 'input_2': binary}), {'logits': mask}
+
+    def on_epoch_end(self):
+        'Updates indexes after each epoch'
+        if self.shuffle == True:
+            np.random.shuffle(self.data_set.data)
 
 
 def pre_transforms(image_size=224):
@@ -70,12 +78,12 @@ def hard_transforms():
         albu.RandomBrightnessContrast(
             brightness_limit=0.2, contrast_limit=0.2, p=0.3
         ),
-        #albu.GridDistortion(p=0.3, border_mode=0, value=255, mask_value=[0, 0, 0]),
+        # albu.GridDistortion(p=0.3, border_mode=0, value=255, mask_value=[0, 0, 0]),
     ])
     result2 = albu.Compose([
-                albu.GaussNoise(p=0.5),
-                albu.RandomGamma(p=0.5)
-                ])
+        albu.GaussNoise(p=0.5),
+        albu.RandomGamma(p=0.5)
+    ])
     result = [
         albu.OneOf([
             result,
@@ -112,7 +120,6 @@ def show_examples(name: str, image: np.ndarray, binary: np.ndarray, mask: np.nda
 
 
 def show(name, image, mask, binary, transforms=None) -> None:
-
     if transforms is not None:
         temp = transforms(image=image, binary=binary, mask=mask)
         image = temp['image']
@@ -122,7 +129,7 @@ def show(name, image, mask, binary, transforms=None) -> None:
     show_examples(name, image, binary, mask)
 
 
-def show_random(dataset:Dataset, transforms=None) -> None:
+def show_random(dataset: Dataset, transforms=None) -> None:
     import os
     length = len(dataset.data)
     index = random.randint(0, length - 1)
