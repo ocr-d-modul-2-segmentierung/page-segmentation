@@ -69,10 +69,11 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
         def filenames(fn, postfix=None):
             if postfix and len(postfix) > 0:
                 fn = [f[:-len(postfix)] if f.endswith(postfix) else f for f in fn]
-                return {os.path.basename(f).split('.')[0] : f+postfix for f in fn}
+                return {os.path.basename(f).split('.')[0]: f + postfix for f in fn}
 
-            x = {os.path.basename(f).split('.')[0] : f for f in fn}
+            x = {os.path.basename(f).split('.')[0]: f for f in fn}
             return x
+
         bin_dir = filenames(bin)
         img_dir = filenames(img)
         mask_dir = filenames(m, masks_postfix)
@@ -133,6 +134,40 @@ def label_to_colors(mask, colormap: dict):
     return out
 
 
+def scale_binary(binary: np.ndarray, scale: float):
+    return rescale(binary, scale,
+                   order=0,
+                   anti_aliasing=False,
+                   preserve_range=True,
+                   multichannel=False)
+
+
+def scale_image(img, target_shape):
+    return resize(
+        img,
+        target_shape,
+        order=3,
+        anti_aliasing=len(np.unique(img)) > 2,
+        preserve_range=True)
+
+
+def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: int, line_height_px: int,
+                   max_width: Optional[int] = None):
+    scale = target_line_height / line_height_px
+    bin = 1.0 - scale_binary(binary, scale) / 255
+    img = 1.0 - scale_image(image, bin.shape) / 255
+
+    if max_width is not None:
+        n_scale = max_width / img.shape[1]
+        if n_scale < 1.0:
+            bin = scale_binary(bin, n_scale)
+            img = scale_image(img, bin.shape)
+
+    img = (img * 255).astype(np.uint8)
+    bin = bin.astype(np.uint8)
+    return img, bin
+
+
 class DatasetLoader:
     def __init__(self, target_line_height, color_map, prediction=False, max_width=None):
         self.target_line_height = target_line_height
@@ -141,8 +176,6 @@ class DatasetLoader:
         self.max_width = max_width
 
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
-        scale = self.target_line_height / dataset_file_entry.line_height_px
-
         def load_if_needed(data: SingleData, attr: str, as_gray: bool) -> np.ndarray:
             file = getattr(data, attr)
             if file is not None:
@@ -160,12 +193,9 @@ class DatasetLoader:
 
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
-        bin = 1.0 - rescale(bin, scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False) / 255
-        img = 1.0 - resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True) / 255
-        n_scale = self.max_width / img.shape[1] if self.max_width else 1.0
-        if n_scale <= 1.0 and self.max_width is not None:
-            bin = rescale(bin, n_scale, order=0, anti_aliasing=False, preserve_range=True, multichannel=False)
-            img = resize(img, bin.shape, order=3, anti_aliasing=len(np.unique(img)) > 2, preserve_range=True)
+
+        img, bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px, self.max_width)
+
         scaled_shape = img.shape
 
         # color
@@ -182,8 +212,8 @@ class DatasetLoader:
             assert (mask.shape == img.shape)
             dataset_file_entry.mask = mask.astype(np.uint8)
 
-        dataset_file_entry.binary = bin.astype(np.uint8)
-        dataset_file_entry.image = (img * 255).astype(np.uint8)
+        dataset_file_entry.binary = bin
+        dataset_file_entry.image = img
         dataset_file_entry.original_shape = original_shape
 
         return dataset_file_entry
