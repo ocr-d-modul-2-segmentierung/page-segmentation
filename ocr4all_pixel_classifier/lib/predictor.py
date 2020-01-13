@@ -138,6 +138,7 @@ if __name__ == "__main__":
     for ind, x in enumerate(predictor.predict(test_data)):
         image = test_data.data[ind]
         from matplotlib import pyplot as plt
+
         plt.imshow(image.image)
         plt.show()
         print(x)
