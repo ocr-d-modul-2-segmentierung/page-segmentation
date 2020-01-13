@@ -154,11 +154,13 @@ def scale_image(img, target_shape):
 def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: int, line_height_px: int,
                    max_width: Optional[int] = None):
     scale = target_line_height / line_height_px
-    bin = 1.0 - scale_binary(binary, scale) / 255
+
+    bin = binary / 255 if np.max(binary) > 1 else binary
+    bin = 1.0 - scale_binary(bin, scale)
     img = 1.0 - scale_image(image, bin.shape) / 255
 
     if max_width is not None:
-        n_scale = max_width / img.shape[1]
+        n_scale = max_width / bin.shape[1]
         if n_scale < 1.0:
             bin = scale_binary(bin, n_scale)
             img = scale_image(img, bin.shape)

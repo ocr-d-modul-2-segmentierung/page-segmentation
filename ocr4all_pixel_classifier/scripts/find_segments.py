@@ -55,11 +55,15 @@ def main():
 
     resize_height = 300
 
-    binary = cv2.imread(args.image)
+    binary = cv2.imread(args.image, cv2.IMREAD_UNCHANGED)
     orig_height, orig_width = binary.shape[0:2]
 
+    from ocr4all_pixel_classifier.lib.dataset import prepare_images
+    img, bin = prepare_images(binary, binary, args.target_line_height, char_height)
+
     masks = predict_masks(args.output,
-                          binary,
+                          img,
+                          bin,
                           image_map,
                           char_height,
                           model=args.load,
@@ -83,6 +87,7 @@ def split_filename(image) -> Tuple[str, str, str]:
 
 
 def predict_masks(output: Optional[str],
+                  image: np.ndarray,
                   binary: np.ndarray,
                   color_map: dict,
                   line_height: int,
@@ -90,7 +95,7 @@ def predict_masks(output: Optional[str],
                   post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None,
                   gpu_allow_growth: bool = False,
                   ) -> Masks:
-    data = SingleData(binary=binary, image=binary, original_shape=binary.shape, line_height_px=line_height)
+    data = SingleData(binary=binary, image=image, original_shape=binary.shape, line_height_px=line_height)
 
     settings = PredictSettings(
         network=os.path.abspath(model),

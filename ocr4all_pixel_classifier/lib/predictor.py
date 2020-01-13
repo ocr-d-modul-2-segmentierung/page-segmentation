@@ -69,12 +69,7 @@ class Predictor:
             for processor in self.settings.post_process:
                 pred = processor(pred, data)
 
-        color_mask, inverted_overlay_mask, overlay_mask = self.generate_output_masks(data, pred)
-        return Masks(
-            color=color_mask,
-            overlay=overlay_mask,
-            inverted_overlay=inverted_overlay_mask
-        )
+        return self.generate_output_masks(data, pred)
 
     def output_data(self, pred, data: SingleData):
         if len(pred.shape) == 3:
@@ -93,14 +88,13 @@ class Predictor:
             else:
                 filename = os.path.basename(data.image_path)
 
-            color_mask, inverted_overlay_mask, overlay_mask = self.generate_output_masks(data, pred)
+            masks = self.generate_output_masks(data, pred)
 
-            img_io.imsave(os.path.join(self.settings.output, "color", filename), (color_mask * 255).astype(np.uint8))
-            img_io.imsave(os.path.join(self.settings.output, "overlay", filename), (overlay_mask * 255).astype(np.uint8))
-            img_io.imsave(os.path.join(self.settings.output, "inverted", filename), (inverted_overlay_mask * 255).astype(np.uint8))
+            img_io.imsave(os.path.join(self.settings.output, "color", filename), masks.color)
+            img_io.imsave(os.path.join(self.settings.output, "overlay", filename), masks.overlay)
+            img_io.imsave(os.path.join(self.settings.output, "inverted", filename), masks.inverted_overlay)
 
-
-    def generate_output_masks(self, data, pred):
+    def generate_output_masks(self, data, pred) -> Masks:
         from ocr4all_pixel_classifier.lib.dataset import label_to_colors
         color_mask = label_to_colors(pred, colormap=self.settings.color_map)
         foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
@@ -114,7 +108,15 @@ class Predictor:
         overlay_mask[foreground == 0] = 0
         inverted_overlay_mask = color_mask.copy()
         inverted_overlay_mask[inv_binary == 0] = 0
-        return color_mask, inverted_overlay_mask, overlay_mask
+
+        def float_color_to_uint(arr: np.ndarray) -> np.ndarray:
+            return (arr * 255).astype(np.uint8)
+
+        return Masks(
+            color=float_color_to_uint(color_mask),
+            overlay=float_color_to_uint(overlay_mask),
+            inverted_overlay=float_color_to_uint(inverted_overlay_mask)
+        )
 
 
 if __name__ == "__main__":
