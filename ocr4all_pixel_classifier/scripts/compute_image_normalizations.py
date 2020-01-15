@@ -15,7 +15,7 @@ def compute_char_height(file_name: str, inverse: bool):
 
     img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
     ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    if inverse:
+    if not inverse:
         img = cv2.subtract(255, img)
 
     # labeled, nr_objects = ndimage.label(img > 128)
@@ -36,7 +36,7 @@ def compute_char_height(file_name: str, inverse: bool):
         return None
 
 
-def compute_normalizations(input_dir, output_dir, inverse=True, average_all=True):
+def compute_normalizations(input_dir, output_dir, inverse=False, average_all=True):
     if not os.path.exists(input_dir):
         raise Exception("Cannot open {}".format(input_dir))
 
@@ -78,7 +78,8 @@ def main():
                         help="The output dir for the info files")
     parser.add_argument("--average_all", action="store_true",
                         help="Average height over all images")
-    parser.add_argument("--inverse", action="store_false", default=True)
+    parser.add_argument("--inverse", action="store_true",
+                        help="use if white is foreground")
 
     args = parser.parse_args()
     compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)
