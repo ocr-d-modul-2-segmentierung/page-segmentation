@@ -105,6 +105,10 @@ split file is:
 ```
 To use a split file, add the `--split_file` parameter.
 
+### Examples
+
+See the examples for [dataset generation](examples/dataset-creation-example.sh) and [training](examples/model-training-example.sh)
+
 ### `ocr4all-pixel-classifier compute-image-normalizations` / `ocrd_compute_normalizations`
 
 Calculate image normalizations, i.e. scaling factors based on average line
