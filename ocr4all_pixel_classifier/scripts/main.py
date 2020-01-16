@@ -40,7 +40,7 @@ commands = {
         'help': 'Convert old model to new format'
     },
     'gen-masks': {
-        'script': 'ocr4all_pixel_classifier.scripts.mask_from_pagexml',
+        'script': 'ocr4all_pixel_classifier.scripts.gen_masks',
         'main': 'main',
         'help': 'Generate mask images from PAGE XML'
     },
