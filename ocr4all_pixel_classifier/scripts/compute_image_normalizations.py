@@ -71,15 +71,19 @@ def compute_normalizations(input_dir, output_dir, inverse=False, average_all=Tru
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True,
-                        help="Image directory to process")
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="The output dir for the info files")
-    parser.add_argument("--average_all", action="store_true",
-                        help="Average height over all images")
-    parser.add_argument("--inverse", action="store_true",
-                        help="use if white is foreground")
+    parser = argparse.ArgumentParser(add_help=False)
+    paths_args = parser.add_argument_group("Paths")
+    paths_args.add_argument("-I", "--input-dir", type=str, required=True,
+                            help="Image directory to process")
+    paths_args.add_argument("-O", "--output-dir", type=str, required=True,
+                            help="The output dir for the normalization data")
+
+    opt_args = parser.add_argument_group("optional arguments")
+    opt_args.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    opt_args.add_argument("--average-all", "--average_all", action="store_true",
+                          help="Use average height over all images")
+    opt_args.add_argument("--inverse", action="store_true",
+                          help="use if white is foreground")
 
     args = parser.parse_args()
     compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)

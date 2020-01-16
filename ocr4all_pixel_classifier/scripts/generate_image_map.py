@@ -9,6 +9,7 @@ from PIL import Image
 import itertools
 import random
 
+
 def get_image_colors(path_to_mask: np.array):
     image_pil = Image.open(path_to_mask)
     if image_pil.mode == 'RGBA':
@@ -35,8 +36,8 @@ def compute_image_map(input_dir, output_dir, max_images=-1, processes=4):
 
     with multiprocessing.Pool(processes=processes) as p:
         colors = [v for v in
-                        tqdm.tqdm(p.imap(get_image_colors, files), total=len(files))
-                        ]
+                  tqdm.tqdm(p.imap(get_image_colors, files), total=len(files))
+                  ]
     colors = set(itertools.chain.from_iterable(colors))
     colors = sorted(colors, key=lambda element: (element[0], element[1], element[2]))[::-1]
     color_dict = {str(key): (value, "label") for (value, key) in enumerate(colors)}
@@ -58,15 +59,21 @@ def load_image_map_from_file(path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True,
-                        help="Mask directory to process")
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="The output dir for the color map")
-    parser.add_argument("--max_image", type=int, default=-1,
+    parser = argparse.ArgumentParser(add_help=False)
+    paths_args = parser.add_argument_group("Paths")
+    paths_args.add_argument("-I", "--input-dir", type=str, required=True,
+                            help="Mask directory to process")
+    paths_args.add_argument("-O", "--output-dir", type=str, required=True,
+                            help="The output dir for the color map")
+
+    opt_args = parser.add_argument_group("optional arguments")
+    opt_args.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    opt_args.add_argument("--max-image", type=int, default=-1,
                         help="Max images to check for color. -1 to check every mask")
-    parser.add_argument("--processes", type=int, default=4,
-                        help="Number of processes to run")
+    opt_args.add_argument("-j", "--jobs", "--threads", metavar='THREADS', dest='threads',
+                           type=int, default=multiprocessing.cpu_count(),
+                           help="Number of threads to use")
+
     args = parser.parse_args()
     compute_image_map(args.input_dir, args.output_dir, args.max_image, args.processes)
 
