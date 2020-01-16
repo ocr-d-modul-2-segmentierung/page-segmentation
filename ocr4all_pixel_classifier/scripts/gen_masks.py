@@ -35,40 +35,45 @@ class MaskSetting(NamedTuple):
 
 
 class PageXMLTypes(enum.Enum):
-    PARAGRAPH = 'paragraph'
-    IMAGE = 'ImageRegion'
-    HEADING = 'heading'
-    HEADER = 'header'
-    CATCH_WORD = 'catch-word'
-    PAGE_NUMBER = 'page-number'
-    SIGNATURE_MARK = 'signature-mark'
-    MARGINALIA = 'marginalia'
-    OTHER = 'other'
-    DROP_CAPITAL = 'drop-capital'
-    FLOATING = 'floating'
-    CAPTION = 'caption'
-    ENDNOTE = 'endnote'
+    PARAGRAPH = ('paragraph', (255, 0, 0))
+    IMAGE = ('ImageRegion', (0, 255, 0))
+    HEADING = ('heading', (0, 0, 255))
+    HEADER = ('header', (0, 255, 255))
+    CATCH_WORD = ('catch-word', (255, 255, 0))
+    PAGE_NUMBER = ('page-number', (255, 0, 255))
+    SIGNATURE_MARK = ('signature-mark', (128, 0, 128))
+    MARGINALIA = ('marginalia', (128, 128, 0))
+    OTHER = ('other', (0, 128, 128))
+    DROP_CAPITAL = ('drop-capital', (255, 128, 0))
+    FLOATING = ('floating', (255, 0, 128))
+    CAPTION = ('caption', (128, 255, 0))
+    ENDNOTE = ('endnote', (0, 255, 128))
 
-    def color(self):
-        return {
-            PageXMLTypes.PARAGRAPH: (255, 0, 0),
-            PageXMLTypes.IMAGE: (0, 255, 0),
-            PageXMLTypes.HEADING: (0, 0, 255),
-            PageXMLTypes.HEADER: (0, 255, 255),
-            PageXMLTypes.CATCH_WORD: (255, 255, 0),
-            PageXMLTypes.PAGE_NUMBER: (255, 0, 255),
-            PageXMLTypes.SIGNATURE_MARK: (128, 0, 128),
-            PageXMLTypes.MARGINALIA: (128, 128, 0),
-            PageXMLTypes.OTHER: (0, 128, 128),
-            PageXMLTypes.DROP_CAPITAL: (255, 128, 0),
-            PageXMLTypes.FLOATING: (255, 0, 128),
-            PageXMLTypes.CAPTION: (128, 255, 0),
-            PageXMLTypes.ENDNOTE: (0, 255, 128),
-
-        }[self]
+    def __new__(cls, value, color):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj.color = color
+        obj.label = value
+        return obj
 
     def color_text_nontext(self):
-        return (0, 255, 0) if self.value is PageXMLTypes.IMAGE.value else (255, 0, 0)
+        return (0, 255, 0) if self is PageXMLTypes.IMAGE else (255, 0, 0)
+
+    @classmethod
+    def image_map(cls, mask_type: MaskType):
+        types = {
+            MaskType.ALLTYPES: PageXMLTypes,
+            MaskType.TEXT_NONTEXT: [PageXMLTypes.PARAGRAPH, PageXMLTypes.IMAGE],
+            MaskType.TEXT_LINE: [PageXMLTypes.PARAGRAPH],
+            MaskType.BASE_LINE: [PageXMLTypes.PARAGRAPH],
+        }[mask_type]
+
+        map = {
+            str(xmltype.color): (i + 1, xmltype.label)
+            for (i, xmltype) in enumerate(types)
+        }
+        map['(0, 0, 0)'] = (0, 'background')
+        return map
 
 
 class RegionType(NamedTuple):
@@ -175,7 +180,7 @@ def page_region_to_mask(page_region: PageRegions, setting: MaskSetting) -> Image
     for x in page_region.xml_regions:
         if setting.MASK_TYPE is MaskType.ALLTYPES:
             if len(x.polygon) > 2:
-                ImageDraw.Draw(pil_image).polygon(x.polygon, outline=x.type.color(), fill=x.type.color())
+                ImageDraw.Draw(pil_image).polygon(x.polygon, outline=x.type.color, fill=x.type.color)
         elif setting.MASK_TYPE is MaskType.TEXT_NONTEXT:
             if len(x.polygon) > 2:
                 ImageDraw.Draw(pil_image).polygon(x.polygon, outline=x.type.color_text_nontext(),
@@ -195,6 +200,8 @@ def main():
                         help="Image directory to process")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="The output dir for the mask files")
+    parser.add_argument("--image_map_dir", type=str, default=None,
+                        help="location for writing the image map")
     parser.add_argument("--threads", type=int, default=multiprocessing.cpu_count(),
                         help="Number of threads to use")
     parser.add_argument('--setting',
@@ -219,6 +226,11 @@ def main():
     files = glob.glob(args.input_dir + '/*.xml')
     from itertools import product
     pool.starmap(mask_gen.save, product(files, [args.output_dir]))
+
+    if args.image_map_dir:
+        with open(os.path.join(args.image_map_dir, 'image_map.json'), 'w') as fp:
+            import json
+            json.dump(PageXMLTypes.image_map(MaskType(args.setting)), fp)
 
 
 if __name__ == '__main__':
