@@ -195,30 +195,39 @@ def page_region_to_mask(page_region: PageRegions, setting: MaskSetting) -> Image
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input_dir", type=str, required=True,
-                        help="Image directory to process")
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="The output dir for the mask files")
-    parser.add_argument("--image_map_dir", type=str, default=None,
-                        help="location for writing the image map")
-    parser.add_argument("--threads", type=int, default=multiprocessing.cpu_count(),
-                        help="Number of threads to use")
-    parser.add_argument('--setting',
-                        default='all_types',
-                        choices=['all_types', 'text_nontext', 'baseline', 'textline'],
-                        help='select types of region to be included (default: %(default)s)')
-    parser.add_argument('--mask_extension',
-                        default='png',
-                        choices=['png', 'dib', 'eps', 'gif', 'icns', 'ico', 'im', 'jpeg', 'msp',
-                                 'pcx', 'ppm', 'sgi', 'tga', 'tiff', 'webp', 'xbm'],
-                        help='Mask extension Setting')
-    parser.add_argument('--pcgts_version',
-                        default='2017',
-                        choices=['2017', '2013'],
-                        help='PCGTS Version')
-    parser.add_argument('--line_width', type=int, default=5, help='Width of the line to be drawn')
+    parser = argparse.ArgumentParser(add_help=False)
+
+    paths_args = parser.add_argument_group("Paths")
+    paths_args.add_argument("-I", "--input-dir", type=str, required=True,
+                            help="Image directory to process")
+    paths_args.add_argument("-O", "--output-dir", type=str, required=True,
+                            help="The output dir for the mask files")
+
+    conf_args = parser.add_argument_group("optional arguments")
+    conf_args.add_argument("-h", "--help", action="help", help="show this help message and exit")
+    conf_args.add_argument("-M", "--image-map-dir", type=str, default=None,
+                            help="location for writing the image map")
+    conf_args.add_argument("-s", '--setting',
+                           default='all_types',
+                           choices=['all_types', 'text_nontext', 'baseline', 'textline'],
+                           help='select types of region to be included (default: %(default)s)')
+    conf_args.add_argument("-e", '--mask-extension',
+                           default='png',
+                           choices=['png', 'dib', 'eps', 'gif', 'icns', 'ico', 'im', 'jpeg', 'msp',
+                                    'pcx', 'ppm', 'sgi', 'tga', 'tiff', 'webp', 'xbm'],
+                           metavar='FILE_EXT',
+                           help='Filetype to use for masks (any of: %(choices)s)')
+    conf_args.add_argument("-p", '--pcgts-version',
+                           default='2017',
+                           choices=['2017', '2013'],
+                           help='PCGTS Version')
+    conf_args.add_argument("-w", '--line-width', type=int, default=5, help='Width of the line to be drawn')
+    conf_args.add_argument("-j", "--jobs", "--threads", metavar='THREADS', dest='threads',
+                           type=int, default=multiprocessing.cpu_count(),
+                           help="Number of threads to use")
+
     args = parser.parse_args()
+
     pool = multiprocessing.Pool(int(args.threads))
     mask_gen = MaskGenerator(MaskSetting(MASK_TYPE=MaskType(args.setting), MASK_EXTENSION=args.mask_extension,
                                          PCGTS_VERSION=PCGTSVersion(args.pcgts_version), LINEWIDTH=args.line_width))
