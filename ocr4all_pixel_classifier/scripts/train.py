@@ -4,10 +4,6 @@ from os import path
 from typing import List
 from ocr4all_pixel_classifier.lib.model import Architecture
 
-# remove when tensorflow#30559 is merged in 1.14.1
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-
 
 def main():
     from ocr4all_pixel_classifier.lib.trainer import TrainSettings, Trainer
