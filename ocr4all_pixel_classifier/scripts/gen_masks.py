@@ -37,6 +37,7 @@ class MaskSetting(NamedTuple):
 class PageXMLTypes(enum.Enum):
     PARAGRAPH = ('paragraph', (255, 0, 0))
     IMAGE = ('ImageRegion', (0, 255, 0))
+    GRAPHIC = ('GraphicRegion', (0, 255, 0))
     HEADING = ('heading', (0, 0, 255))
     HEADER = ('header', (0, 255, 255))
     CATCH_WORD = ('catch-word', (255, 255, 0))
@@ -57,7 +58,7 @@ class PageXMLTypes(enum.Enum):
         return obj
 
     def color_text_nontext(self):
-        return (0, 255, 0) if self is PageXMLTypes.IMAGE else (255, 0, 0)
+        return (0, 255, 0) if self is PageXMLTypes.IMAGE or self is PageXMLTypes.GraphicRegion else (255, 0, 0)
 
     @classmethod
     def image_map(cls, mask_type: MaskType):
