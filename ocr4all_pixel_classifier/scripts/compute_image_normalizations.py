@@ -1,12 +1,14 @@
-import multiprocessing
-
 import argparse
-import cv2
 import json
-import numpy as np
+import multiprocessing
 import os
-import tqdm
+import sys
 from functools import partial
+from math import isnan
+
+import cv2
+import numpy as np
+import tqdm
 
 
 def compute_char_height(file_name: str, inverse: bool):
@@ -36,11 +38,14 @@ def compute_char_height(file_name: str, inverse: bool):
         return None
 
 
-def compute_normalizations(input_dir, output_dir, inverse=False, average_all=True):
+def compute_normalizations(input_dir, output_dir=None, inverse=False, average_all=True):
     if not os.path.exists(input_dir):
         raise Exception("Cannot open {}".format(input_dir))
 
-    files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
+    if not os.path.isdir(input_dir):
+        files = [input_dir]
+    else:
+        files = [os.path.join(input_dir, f) for f in os.listdir(input_dir)]
 
     # files = files[:10]
 
@@ -49,8 +54,10 @@ def compute_normalizations(input_dir, output_dir, inverse=False, average_all=Tru
                         tqdm.tqdm(p.imap(partial(compute_char_height, inverse=inverse), files), total=len(files))
                         ]
 
+    av_height = np.mean([c for c in char_heights if c])
+    if isnan(av_height):
+        raise Exception("No chars found in dataset")
     if average_all:
-        av_height = np.mean([c for c in char_heights if c])
         char_heights = [av_height] * len(char_heights)
 
     if output_dir:
@@ -58,6 +65,8 @@ def compute_normalizations(input_dir, output_dir, inverse=False, average_all=Tru
 
     for file, height in zip(files, char_heights):
         filename, file_extension = os.path.splitext(os.path.basename(file))
+        if height is None:
+            height = av_height
         if output_dir:
             output_file = os.path.join(output_dir, filename + ".norm")
             with open(output_file, 'w') as f:
@@ -66,8 +75,6 @@ def compute_normalizations(input_dir, output_dir, inverse=False, average_all=Tru
                     f,
                     indent=4
                 )
-
-        print(file, height)
 
 
 def main():
@@ -81,12 +88,22 @@ def main():
     opt_args = parser.add_argument_group("optional arguments")
     opt_args.add_argument("-h", "--help", action="help", help="show this help message and exit")
     opt_args.add_argument("--average-all", "--average_all", action="store_true",
-                          help="Use average height over all images")
+                          help="Use average height over all images.")
     opt_args.add_argument("--inverse", action="store_true",
                           help="use if white is foreground")
+    opt_args.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
-    compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)
+
+    if args.debug:
+        compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)
+    else:
+        try:
+            import warnings
+            warnings.filterwarnings('ignore')
+            compute_normalizations(args.input_dir, args.output_dir, args.inverse, args.average_all)
+        except Exception:
+            print("Error:", sys.exc_info()[1])
 
 
 if __name__ == '__main__':
