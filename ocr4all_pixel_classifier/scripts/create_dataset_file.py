@@ -48,7 +48,7 @@ def main():
 
     seed(args.seed)
 
-    data_files = list_dataset(args.dataset_path, args.char_height_of_n,
+    data_files = list_dataset(args.dataset_path, args.xheight,
                               binary_dir_=args.binary_dir,
                               images_dir_=args.images_dir,
                               masks_dir_=args.masks_dir,
