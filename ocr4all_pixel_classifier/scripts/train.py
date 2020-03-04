@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 from os import path
 from typing import List
 from ocr4all_pixel_classifier.lib.model import Architecture
@@ -62,10 +63,19 @@ def main():
     def relpaths(basedir: str, files: List[str]) -> List[str]:
         return [x if x[0] == "/" else path.join(basedir, x) for x in files]
 
+    def is_valid_splitfile(json):
+        for category in ["train", "test", "eval"]:
+            if type(json[category]) == list and len(json[category]) > 0 and type(json[category][0]) != str:
+                return False
+        return True
+
     # json file for splits
     if args.split_file:
         with open(args.split_file) as f:
             d = json.load(f)
+            if not is_valid_splitfile(d):
+                print("Invalid splitfile. Did you pass a dataset file?")
+                sys.exit(1)
             reldir = path.dirname(args.split_file)
             args.train += relpaths(reldir, d["train"])
             args.test += relpaths(reldir, d["test"])
