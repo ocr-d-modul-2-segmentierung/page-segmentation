@@ -44,6 +44,11 @@ commands = {
         'main': 'main',
         'help': 'Generate mask images from PAGE XML'
     },
+    'eval': {
+        'script': 'ocr4all_pixel_classifier.scripts.evaluate',
+        'main': 'main',
+        'help': 'Evaluate a model'
+    },
 }
 
 
