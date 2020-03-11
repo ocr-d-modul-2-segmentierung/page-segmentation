@@ -11,6 +11,7 @@ from PIL import Image
 from skimage.transform import resize, rescale
 
 from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
+from ocr4all_pixel_classifier.lib.util import imread
 
 
 @dataclass
@@ -184,12 +185,7 @@ class DatasetLoader:
             if file is not None:
                 return file
             else:
-                pil_image = Image.open(getattr(data, attr + '_path'))
-                if pil_image.mode == 'RGBA':
-                    pil_image = pil_image.convert('RGB')
-                if as_gray:
-                    pil_image = pil_image.convert('L')
-                return np.asarray(pil_image)
+                return imread(getattr(data, attr + '_path'), as_gray=as_gray)
 
         # inverted grayscale (black background)
         img = load_if_needed(dataset_file_entry, 'image', as_gray=True)

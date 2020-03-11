@@ -22,14 +22,20 @@ def image_to_batch(img):
         return np.expand_dims(img, axis=0)
 
 
-def imread(path):
+def imread(path, as_gray=False):
     """
     Read RGB image, remove an eventual alpha channel, and convert to numpy
     """
     pil_image = Image.open(path)
     if pil_image.mode == 'RGBA':
         pil_image = pil_image.convert('RGB')
+    if as_gray:
+        pil_image = pil_image.convert('L')
     return np.asarray(pil_image)
+
+
+def imread_bin(path, fg_value=0):
+    return imread(path) == fg_value
 
 
 def match_filenames(base_files: List[str], *file_lists: str) -> Tuple[bool, Optional[str]]:

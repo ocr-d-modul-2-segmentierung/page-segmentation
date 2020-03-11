@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from ocr4all_pixel_classifier.lib.evaluation import count_matches, total_accuracy, f1_measures
 from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
-from ocr4all_pixel_classifier.lib.util import imread
+from ocr4all_pixel_classifier.lib.util import imread, imread_bin
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
 
 
@@ -58,15 +58,15 @@ def main():
         mask = rgb_to_label(imread(mask_p), eval_map)
         pred = rgb_to_label(imread(pred_p), model_map)
 
-        fg = imread(bin_p) == 0
+        fg = imread_bin(bin_p)
 
-        text_matches = count_matches(mask, pred, fg, 1)
+        text_matches = count_matches(mask[fg], pred[fg], 1)
         text_tpfpfn += text_matches
 
-        image_matches = count_matches(mask, pred, fg, 2)
+        image_matches = count_matches(mask[fg], pred[fg], 2)
         image_tpfpfn += image_matches
 
-        correct_total += total_accuracy(mask, pred, fg)
+        correct_total += total_accuracy(mask[fg], pred[fg])
 
         if args.verbose:
             print("T: {:<10} / {:<10} / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
