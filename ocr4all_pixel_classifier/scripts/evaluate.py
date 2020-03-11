@@ -1,12 +1,12 @@
 import argparse
 import os
-from typing import Tuple
 
 import numpy as np
-from PIL import Image
 from tqdm import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import color_to_label
+from ocr4all_pixel_classifier.lib.evaluation import count_matches, total_accuracy, f1_measures
+from ocr4all_pixel_classifier.lib.util import imread
 from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
 
 
@@ -70,9 +70,9 @@ def main():
 
         if args.verbose:
             print("T: {:<10} / {:<10} / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
-                  .format(*text_matches, *measure(*text_matches), bin_p))
+                  .format(*text_matches, *f1_measures(*text_matches), bin_p))
             print("I: {:<10} / {:<10} / / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
-                  .format(*image_matches, *measure(*image_matches), bin_p))
+                  .format(*image_matches, *f1_measures(*image_matches), bin_p))
 
     print("\nText:")
     print(format_total(text_tpfpfn))
@@ -88,46 +88,7 @@ def format_total(counts):
     return '================================================================\n' \
            'total:\n' \
            '{:<10} / {:<10} /  {:<10} -> Prec: {:f}, Rec: {:f}, Acc{:f}' \
-        .format(ttp, tfp, tfn, *measure(ttp, tfp, tfn))
-
-
-def count_matches(mask: np.ndarray, pred: np.ndarray, fg: np.ndarray, color: int) \
-        -> Tuple[int, int, int]:
-    mask_c = mask == color
-    pred_c = pred == color
-    mask_fg = mask_c[fg]
-    pred_fg = pred_c[fg]
-    nmask_fg = ~mask_fg
-    npred_fg = ~pred_fg
-    tp = np.count_nonzero(np.logical_and(mask_fg, pred_fg))
-    fp = np.count_nonzero(np.logical_and(mask_fg, npred_fg))
-    fn = np.count_nonzero(np.logical_and(nmask_fg, pred_fg))
-    return tp, fp, fn
-
-
-def total_accuracy(mask: np.ndarray, pred: np.ndarray, fg: np.ndarray) -> Tuple[int, int]:
-    equal = (mask == pred)[fg]
-    return np.count_nonzero(equal), equal.size
-
-
-def measure(tp, fp, fn):
-    if tp == 0:
-        return 0, 0, 0
-    else:
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        return precision, recall, f1(precision, recall)
-
-
-def f1(precision, recall):
-    return 2 * precision * recall / (precision + recall)
-
-
-def imread(path):
-    pil_image = Image.open(path)
-    if pil_image.mode == 'RGBA':
-        pil_image = pil_image.convert('RGB')
-    return np.asarray(pil_image)
+        .format(ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
 if __name__ == "__main__":
