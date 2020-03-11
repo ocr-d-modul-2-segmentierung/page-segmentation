@@ -1,6 +1,6 @@
 import enum
 import os
-import xml.etree.ElementTree as ElementTree
+from lxml import etree
 from typing import NamedTuple, List, Tuple, Optional, Set
 
 import numpy as np
@@ -15,20 +15,34 @@ class MaskType(enum.Enum):
 
 
 class PCGTSVersion(enum.Enum):
+    PCGTS2019 = '2019'
     PCGTS2017 = '2017'
     PCGTS2013 = '2013'
 
     def get_namespace(self):
         return {
+            PCGTSVersion.PCGTS2019: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15',
             PCGTSVersion.PCGTS2017: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15',
             PCGTSVersion.PCGTS2013: 'https://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15',
         }[self]
+
+    @staticmethod
+    def detect(root: etree.Element):
+        for ns in root.nsmap.values():
+            if ns.startswith('http://schema.primaresearch.org/PAGE/gts/pagecontent'):
+                for version in PCGTSVersion:
+                    if version.get_namespace() == ns:
+                        return version
+                else:
+                    raise Exception('Unknown Schema Version')
+        else:
+            raise Exception('No PAGE namespace found')
 
 
 class MaskSetting(NamedTuple):
     MASK_EXTENSION: str = 'png'
     MASK_TYPE: MaskType = MaskType.ALLTYPES
-    PCGTS_VERSION: PCGTSVersion = PCGTSVersion.PCGTS2017
+    PCGTS_VERSION: Optional[PCGTSVersion] = None  # autodetect if not given
     LINEWIDTH: int = 5
 
 
@@ -132,13 +146,16 @@ def nested_child_regions(child, namespaces, tag: str = 'pcgts:Coords') -> List[R
 
 
 def get_xml_regions(xml_file, setting: MaskSetting) -> PageRegions:
-    namespaces = {'pcgts': setting.PCGTS_VERSION.get_namespace()}
-    root = ElementTree.parse(xml_file).getroot()
-    region_by_types = []
+    root = etree.parse(xml_file).getroot()
+    if setting.PCGTS_VERSION:
+        namespaces = {'pcgts': setting.PCGTS_VERSION.get_namespace()}
+    else:
+        namespaces = {'pcgts': PCGTSVersion.detect(root)}
 
     for name, value in namespaces.items():
-        ElementTree.register_namespace(name, value)
+        etree.register_namespace(name, value)
 
+    region_by_types = []
     for child in root.findall('.//pcgts:TextRegion', namespaces):
         if setting.MASK_TYPE == setting.MASK_TYPE.TEXT_NONTEXT or setting.MASK_TYPE == setting.MASK_TYPE.ALLTYPES:
             region_by_types.append(coords_for_element(child, namespaces))
