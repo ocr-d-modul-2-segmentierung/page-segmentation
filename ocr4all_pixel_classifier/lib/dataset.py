@@ -1,15 +1,16 @@
-import multiprocessing
-
 import json
-import numpy as np
+import multiprocessing
 import os
-import tqdm
 from dataclasses import dataclass
 from random import shuffle
 from typing import List, Tuple, Optional, Any
-from skimage.transform import resize, rescale
+
+import numpy as np
+import tqdm
 from PIL import Image
-import itertools
+from skimage.transform import resize, rescale
+
+from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
 
 
 @dataclass
@@ -64,7 +65,6 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             raise Exception("Dataset dir does not exist at '%s'" % d)
 
     bin, img, m = listdir(binary_dir), listdir(images, masks_postfix, True), listdir(masks, masks_postfix)
-    from typing import NamedTuple
     if verify_filenames:
         def filenames(fn, postfix=None):
             if postfix and len(postfix) > 0:
@@ -109,6 +109,7 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             for b_p, i_p, m_p, l_h in zip(bin, img, m, line_height_px)]
 
 
+#DEPRECATED
 def color_to_label(mask, colormap: dict):
     out = np.zeros(mask.shape[0:2], dtype=np.int32)
 
@@ -206,7 +207,7 @@ class DatasetLoader:
             mask = resize(mask, scaled_shape, order=0, anti_aliasing=False, preserve_range=True)
 
             if mask.ndim == 3:
-                mask = color_to_label(mask, self.color_map)
+                mask = rgb_to_label(mask, self.color_map)
             elif mask.ndim == 2:
                 u_values = np.unique(mask)
                 for ind, x in enumerate(u_values):

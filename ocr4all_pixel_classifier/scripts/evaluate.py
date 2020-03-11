@@ -4,10 +4,10 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from ocr4all_pixel_classifier.lib.dataset import color_to_label
 from ocr4all_pixel_classifier.lib.evaluation import count_matches, total_accuracy, f1_measures
+from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
 from ocr4all_pixel_classifier.lib.util import imread
-from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
+from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
 
 
 def main():
@@ -55,8 +55,8 @@ def main():
                                 (255, 0, 255): [2, 'image']}
 
     for mask_p, pred_p, bin_p in tqdm(zip(args.masks, args.preds, args.binary)):
-        mask = color_to_label(imread(mask_p), eval_map)
-        pred = color_to_label(imread(pred_p), model_map)
+        mask = rgb_to_label(imread(mask_p), eval_map)
+        pred = rgb_to_label(imread(pred_p), model_map)
 
         fg = imread(bin_p) == 0
 
