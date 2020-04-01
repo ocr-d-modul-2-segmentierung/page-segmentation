@@ -4,6 +4,8 @@ from typing import NamedTuple, Generator, List, Callable, Optional
 import numpy as np
 import skimage.io as img_io
 from dataclasses import dataclass
+
+from skimage import img_as_bool
 from skimage.transform import resize
 
 from ocr4all_pixel_classifier.lib.dataset import Dataset, SingleData
@@ -55,6 +57,12 @@ class Predictor:
         for data in dataset.data:
             logit, prob, pred = self.network.predict_single_data(data)
 
+            if self.settings.high_res_output:
+                data.binary = data.orig_binary
+                data.image = resize(data.image, data.original_shape, order=0, anti_aliasing=False, preserve_range=True)
+                pred = resize(pred, data.original_shape, order=0, anti_aliasing=False, preserve_range=True)\
+                    .astype('int64')
+
             if self.settings.post_process:
                 for processor in self.settings.post_process:
                     pred = processor(pred, data)
@@ -99,10 +107,6 @@ class Predictor:
         color_mask = label_to_colors(pred, colormap=self.settings.color_map)
         foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
         inv_binary = data.binary
-        if self.settings.high_res_output:
-            color_mask = resize(color_mask, data.original_shape, order=0)
-            foreground = resize(foreground, data.original_shape) / 255
-            inv_binary = resize(inv_binary, data.original_shape, order=0)
         inv_binary = np.stack([inv_binary] * 3, axis=-1)
         overlay_mask = color_mask.copy()
         overlay_mask[foreground == 0] = 0
@@ -113,9 +117,9 @@ class Predictor:
             return (arr * 255).astype(np.uint8)
 
         return Masks(
-            color=float_color_to_uint(color_mask),
-            overlay=float_color_to_uint(overlay_mask),
-            inverted_overlay=float_color_to_uint(inverted_overlay_mask)
+            color=color_mask,
+            overlay=overlay_mask,
+            inverted_overlay=inverted_overlay_mask
         )
 
 

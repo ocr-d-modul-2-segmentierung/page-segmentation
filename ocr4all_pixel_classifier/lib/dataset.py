@@ -18,6 +18,7 @@ from ocr4all_pixel_classifier.lib.util import imread
 class SingleData:
     image: np.ndarray = None
     binary: Optional[np.ndarray] = None
+    orig_binary: Optional[np.ndarray] = None
     mask: np.ndarray = None
     image_path: Optional[str] = None
     binary_path: Optional[str] = None
@@ -154,11 +155,11 @@ def scale_image(img, target_shape):
 
 
 def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: int, line_height_px: int,
-                   max_width: Optional[int] = None):
+                   max_width: Optional[int] = None, keep_orig_bin=False):
     scale = target_line_height / line_height_px
 
-    bin = binary / 255 if np.max(binary) > 1 else binary
-    bin = 1.0 - scale_binary(bin, scale)
+    orig_bin = binary / 255 if np.max(binary) > 1 else binary
+    bin = 1.0 - scale_binary(orig_bin, scale)
     img = 1.0 - scale_image(image, bin.shape) / 255
 
     if max_width is not None:
@@ -169,7 +170,10 @@ def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: in
 
     img = (img * 255).astype(np.uint8)
     bin = bin.astype(np.uint8)
-    return img, bin
+    if keep_orig_bin:
+        return img, bin, (1 - orig_bin).astype(np.uint8)
+    else:
+        return img, bin
 
 
 class DatasetLoader:
@@ -193,7 +197,7 @@ class DatasetLoader:
         original_shape = img.shape
         bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
 
-        img, bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px, self.max_width)
+        img, bin, orig_bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px, self.max_width, keep_orig_bin=True)
 
         scaled_shape = img.shape
 
@@ -212,6 +216,7 @@ class DatasetLoader:
             dataset_file_entry.mask = mask.astype(np.uint8)
 
         dataset_file_entry.binary = bin
+        dataset_file_entry.orig_binary = orig_bin
         dataset_file_entry.image = img
         dataset_file_entry.original_shape = original_shape
 
