@@ -1,7 +1,6 @@
-from typing import Tuple, Callable, Generator, TypeVar
+from typing import Tuple, Callable, Generator, TypeVar, Union
 
-import cv2
-import numpy as np
+from ocr4all_pixel_classifier.lib.cc import cc_bbox_func
 
 
 def count_matches(mask: np.ndarray, pred: np.ndarray, label: int) \
@@ -47,3 +46,78 @@ def f1_measures(tp: int, fp: int, fn: int) -> Tuple[float, float, float]:
 
 def f1(precision: float, recall: float) -> float:
     return 2 * precision * recall / (precision + recall)
+
+
+def cc_equal(threshold: float):
+    return lambda pred, mask: np.count_nonzero(pred == mask) / np.size(mask) >= threshold
+
+
+def cc_matching(label: int, threshold: float, assume_filtered: bool = False):
+    # return (1,0,0) for TP, (0,1,0) for FP, (0,0,1) for FN
+    def match(mask, pred):
+        size = np.size(mask)
+        pred_match = np.count_nonzero(pred == label) / size >= threshold
+        if assume_filtered:
+            mask_match = True
+        else:
+            mask_match = np.count_nonzero(mask == label) / size >= threshold
+        return np.array(
+            [int(pred_match and mask_match), int(pred_match and not mask_match), int(mask_match and not pred_match)])
+
+    return match
+
+
+class ConnectedComponentEval:
+    def __init__(self, mask: np.ndarray, prediction: np.ndarray, binary_image: np.ndarray, connectivity=4):
+        if binary_image.ndim > 2:
+            raise ValueError("Binary image must be 2-dimensional")
+
+        self.mask = mask
+        self.pred = prediction
+        self.binary_image = binary_image
+        self.filtered_label = None
+        self.threshold = None
+
+        self.num_labels, self.labels, self.stats, self.centroids = \
+            cv2.connectedComponentsWithStats(binary_image.astype("uint8"), connectivity=connectivity)
+
+    def only_label(self, label: int, threshold: float):
+        self.filtered_label = label
+        self.threshold = threshold
+        return self
+
+    def _filter(self, component: Union[int, np.ndarray], bbox):
+        if not self.filtered_label:
+            return True
+
+        if type(component) is int:
+            component = (bbox(self.labels) == component)
+
+        mask = bbox(self.mask)[component]
+        matches = np.count_nonzero(mask == self.filtered_label)
+        return matches / np.size(mask) >= self.threshold
+
+    def _call_masked(self, component: Union[int, np.ndarray], func, bbox):
+        if type(component) is int:
+            component = (bbox(self.labels) == component)
+        return func(bbox(self.mask)[component], bbox(self.pred)[component])
+
+    T = TypeVar('T')
+
+    def run_per_component(self, func: Callable[[np.ndarray, np.ndarray], T]) -> Generator[T, None, None]:
+        for i in range(1, self.num_labels):
+            bbox = cc_bbox_func(self.stats, i)
+            selection = bbox(self.labels) == i
+            if self._filter(selection, bbox):
+                yield self._call_masked(selection, func, bbox)
+
+    def sum(self, func: Callable[[np.ndarray, np.ndarray], int]) -> int:
+        sum = 0
+        for i in range(1, self.num_labels):
+            selection = self.labels == i
+            if self._filter(selection):
+                sum += self._call_masked(selection, func)
+        return sum
+
+    def average(self, func: Callable[[np.ndarray, np.ndarray], float]) -> float:
+        return np.average([self._call_masked(i, func) for i in range(1, self.num_labels) if self._filter(i)])
