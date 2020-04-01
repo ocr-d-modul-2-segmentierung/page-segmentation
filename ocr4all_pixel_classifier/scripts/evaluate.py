@@ -58,7 +58,6 @@ def main():
 
     # for mask_p, pred_p, bin_p in tqdm(zip(args.masks, args.preds, args.binary)):
 
-
     text_tpfpfn = np.zeros([3])
     image_tpfpfn = np.zeros([3])
     correct_total = np.zeros([2])
@@ -109,7 +108,7 @@ def format_total(counts):
         .format(ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
-def csv_total(category:str, counts: np.ndarray):
+def csv_total(category: str, counts: np.ndarray):
     ttp, tfp, tfn = counts
     return '{},{},{},{},{:f},{:f},{:f}' \
         .format(category, ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
@@ -123,7 +122,7 @@ def eval_page(page, eval_map, model_map, verbose):
 
     cceval = ConnectedComponentEval(mask, pred, fg).only_label(1, 1.0)
 
-    text_matches_cc = sum(cceval.run_per_component(cc_matching(1, 1, assume_filtered=True)))
+    text_matches_cc = sum(cceval.run_per_component(cc_matching(1, 1, 0.1, assume_filtered=True)))
     # image_matches_cc = sum(cceval.run_per_component(cc_matching(2, 0.9)))
     # image_tpfpfn_cc += image_matches_cc
 
