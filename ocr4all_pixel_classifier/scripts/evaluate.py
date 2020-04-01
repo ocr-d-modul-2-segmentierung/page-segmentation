@@ -71,7 +71,6 @@ def main():
         #for page in zip(args.masks, args.preds, args.binary):
         #    match = eval_page(page, eval_map=eval_map, model_map=model_map, verbose=args.verbose)
             text_tpfpfn += match.text
-            print(match.cc)
             image_tpfpfn += match.image
             correct_total += match.accuracy
             text_tpfpfn_cc += match.cc
