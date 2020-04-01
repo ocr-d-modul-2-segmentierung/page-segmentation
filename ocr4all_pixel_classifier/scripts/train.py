@@ -8,6 +8,7 @@ from ocr4all_pixel_classifier.lib.model import Architecture
 
 def main():
     from ocr4all_pixel_classifier.lib.trainer import TrainSettings, Trainer
+    from ocr4all_pixel_classifier.lib.metrics import Monitor
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-L", "--l-rate", type=float, default=1e-4,
@@ -82,7 +83,7 @@ def main():
             args.eval += relpaths(reldir, d["eval"])
 
     from ocr4all_pixel_classifier.lib.dataset import DatasetLoader
-    from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
+    from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
     from ocr4all_pixel_classifier.lib.metrics import Loss
 
     image_map = load_image_map_from_file(args.color_map)
@@ -102,6 +103,7 @@ def main():
         evaluation_data=eval_data,
         load=args.load,
         loss=Loss.CATEGORICAL_CROSSENTROPY,
+        monitor=Monitor.LOSS,
         display=args.display,
         output_dir=args.output,
         early_stopping_max_performance_drops=args.early_stopping_max_performance_drops,
