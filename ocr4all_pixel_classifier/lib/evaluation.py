@@ -1,5 +1,7 @@
 from typing import Tuple, Callable, Generator, TypeVar, Union
 
+import cv2
+import numpy as np
 from ocr4all_pixel_classifier.lib.cc import cc_bbox_func
 
 
