@@ -95,9 +95,13 @@ class ConnectedComponentEval:
         if type(component) is int:
             component = (bbox(self.labels) == component)
 
-        mask = bbox(self.mask)[component]
+        return self._label_ratio(bbox, self.mask, component) >= self.threshold \
+               or self._label_ratio(bbox, self.pred, component) > 0
+
+    def _label_ratio(self, bbox, image, component):
+        mask = bbox(image)[component]
         matches = np.count_nonzero(mask == self.filtered_label)
-        return matches / np.size(mask) >= self.threshold
+        return matches / np.size(mask)
 
     def _call_masked(self, component: Union[int, np.ndarray], func, bbox):
         if type(component) is int:
