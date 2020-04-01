@@ -35,9 +35,9 @@ def main():
                            metavar='FILE_EXT',
                            help='Filetype to use for masks (any of: %(choices)s)')
     conf_args.add_argument("-p", '--pcgts-version',
-                           default='2017',
+                           default=None,
                            choices=[v.value for v in PCGTSVersion],
-                           help='PCGTS Version')
+                           help='Force PCGTS Version namespace')
     conf_args.add_argument("-w", '--line-width', type=int, default=5, help='Width of the line to be drawn')
     conf_args.add_argument("-j", "--jobs", "--threads", metavar='THREADS', dest='threads',
                            type=int, default=multiprocessing.cpu_count(),
@@ -45,9 +45,12 @@ def main():
 
     args = parser.parse_args()
 
+    if args.pcgts_version:
+        args.pcgts_version = PCGTSVersion(args.pcgts_version)
+
     pool = multiprocessing.Pool(int(args.threads))
-    mask_gen = MaskGenerator(MaskSetting(MASK_TYPE=MaskType(args.setting), MASK_EXTENSION=args.mask_extension,
-                                         PCGTS_VERSION=PCGTSVersion(args.pcgts_version), LINEWIDTH=args.line_width))
+    mask_gen = MaskGenerator(MaskSetting(mask_type=MaskType(args.setting), mask_extension=args.mask_extension,
+                                         pcgts_version=args.pcgts_version, line_width=args.line_width))
 
     files = glob.glob(args.input_dir + '/*.xml')
     from itertools import product
