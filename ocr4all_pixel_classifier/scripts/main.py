@@ -44,6 +44,11 @@ commands = {
         'main': 'main',
         'help': 'Generate mask images from PAGE XML'
     },
+    'find-segments': {
+        'script': 'ocr4all_pixel_classifier.scripts.find_segments',
+        'main': 'main',
+        'help': 'Run a prediction and region segmentation'
+    },
     'eval': {
         'script': 'ocr4all_pixel_classifier.scripts.evaluate',
         'main': 'main',
@@ -62,6 +67,7 @@ def main():
 
     parser = argparse.ArgumentParser(usage=usage)
     parser.add_argument('command', help='The sub command to execute, see COMMANDS')
+    parser.add_argument("--completion")
 
     args = parser.parse_args(sys.argv[1:2])
     sys.argv = sys.argv[:1] + sys.argv[2:]

@@ -1,5 +1,4 @@
 import argparse
-import glob
 import json
 import os
 import numpy as np
@@ -11,10 +10,7 @@ from ocr4all_pixel_classifier.lib.dataset import DatasetLoader, SingleData
 from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
 from ocr4all_pixel_classifier.lib.predictor import Predictor, PredictSettings, Prediction
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
-
-
-def glob_all(filenames):
-    return [g for f in filenames for g in glob.glob(f)]
+from ocr4all_pixel_classifier.lib.util import glob_all
 
 
 def main():
@@ -50,12 +46,12 @@ def main():
     norm_file_paths = sorted(glob_all(args.norm)) if args.norm else []
 
     if len(image_file_paths) != len(binary_file_paths):
-        raise Exception("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
+        parser.error("Got {} images but {} binary images".format(len(image_file_paths), len(binary_file_paths)))
 
     print("Loading {} files with character height {}".format(len(image_file_paths), args.char_height))
 
     if not args.char_height and len(norm_file_paths) == 0:
-        raise Exception("Either char height or norm files must be provided")
+        parser.error("either --norm or --char_height must be specified")
 
     if args.char_height:
         line_heights = [args.char_height] * len(image_file_paths)

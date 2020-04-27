@@ -1,3 +1,4 @@
+import glob
 import os
 from typing import Tuple, Optional, List
 
@@ -34,8 +35,13 @@ def imread(path, as_gray=False):
     return np.asarray(pil_image)
 
 
-def imread_bin(path, fg_value=0):
-    return imread(path) == fg_value
+def imread_bin(path, white_is_fg=False):
+    pil_image = Image.open(path)
+    bin = np.asarray(pil_image.convert('1'))
+    if white_is_fg:
+        return not bin
+    else:
+        return bin
 
 
 def match_filenames(base_files: List[str], *file_lists: str) -> Tuple[bool, Optional[str]]:
@@ -59,3 +65,7 @@ def match_filenames(base_files: List[str], *file_lists: str) -> Tuple[bool, Opti
             if not next.startswith(first_root):
                 return False, "filename mismatch ({} ≠ {})".format(first, next)
     return True, None
+
+
+def glob_all(filenames):
+    return [g for f in filenames for g in glob.glob(f)]

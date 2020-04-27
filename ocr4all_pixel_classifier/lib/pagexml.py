@@ -236,13 +236,14 @@ def page_region_to_binary_mask(page_region: PageRegions) -> np.ndarray:
 def page_region_to_mask(page_region: PageRegions, setting: MaskSetting) -> Image:
     height, width = page_region.image_size
     pil_image = Image.new('RGB', (width, height), (255, 255, 255))
+    canvas = ImageDraw.Draw(pil_image)
     for x in page_region.xml_regions:
         color = setting.mask_type.get_color(x, setting.capital_is_text)
 
         if (setting.mask_type in [MaskType.ALLTYPES, MaskType.TEXT_GRAPHICS, MaskType.TEXT_ONLY] and len(x.polygon) > 2) \
                 or setting.mask_type is MaskType.TEXT_LINE:
-            ImageDraw.Draw(pil_image).polygon(x.polygon, outline=color, fill=color)
+            canvas.polygon(x.polygon, outline=color, fill=color)
         elif setting.mask_type is MaskType.BASE_LINE:
-            ImageDraw.Draw(pil_image).line(x.polygon, fill=color, width=setting.line_width)
+            canvas.line(x.polygon, fill=color, width=setting.line_width)
 
     return pil_image

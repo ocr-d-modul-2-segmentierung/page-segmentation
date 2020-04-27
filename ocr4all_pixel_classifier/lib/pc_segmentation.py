@@ -49,6 +49,7 @@ def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_
                                split_size_vertical,
                                color_mapping["image"])
 
+
     return scale_all(segments_text, 1.0 / absolute_resize_factor),\
            scale_all(segments_image, 1.0 / absolute_resize_factor)
 

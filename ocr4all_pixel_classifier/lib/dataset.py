@@ -7,7 +7,6 @@ from typing import List, Tuple, Optional, Any
 
 import numpy as np
 import tqdm
-from PIL import Image
 from skimage.transform import resize, rescale
 
 from ocr4all_pixel_classifier.lib.image_map import rgb_to_label

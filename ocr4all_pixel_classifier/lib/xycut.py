@@ -1,8 +1,12 @@
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict
 
 import numpy as np
+from PIL import Image, ImageDraw
 
 from dataclasses import dataclass
+
+RGBColor = Tuple[int, int, int]
+
 
 @dataclass
 class Segment:
@@ -10,7 +14,6 @@ class Segment:
     y_start: int
     x_end: int
     y_end: int
-    done: bool = False
 
     def of(self, image: np.ndarray):
         return image[self.y_start:self.y_end, self.x_start:self.x_end]
@@ -21,8 +24,23 @@ class Segment:
             y_start=int(self.y_start * factor),
             x_end=int(self.x_end * factor),
             y_end=int(self.y_end * factor),
-            done=self.done
         )
+
+    def as_xy(self) -> List[Tuple[int, int]]:
+        return [(self.y_start, self.x_start), (self.y_end, self.x_end)]
+
+    def render(self, canvas: ImageDraw, color: RGBColor):
+        canvas.rectangle(self.as_xy(), fill=color, outline=color)
+
+
+def render_all(size: Tuple[int, int], segment_groups: List[Tuple[RGBColor, List[Segment]]],
+               base_color: Tuple[int, int, int] = (255, 255, 255)) -> Image:
+    pil_image = Image.new('RGB', size, base_color)
+    canvas = ImageDraw.Draw(pil_image)
+    for color, segments in segment_groups:
+        for seg in segments:
+            seg.render(canvas, color)
+    return pil_image
 
 
 @dataclass
