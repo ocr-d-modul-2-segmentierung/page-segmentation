@@ -42,6 +42,8 @@ def main():
     conf_args.add_argument("-j", "--jobs", "--threads", metavar='THREADS', dest='threads',
                            type=int, default=multiprocessing.cpu_count(),
                            help="Number of threads to use")
+    conf_args.add_argument("--use-input-filename", action="store_true",
+                           help='use xml file basename for output instead of pagexml attribute')
 
     args = parser.parse_args()
 

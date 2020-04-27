@@ -231,7 +231,10 @@ class DatasetLoader:
     def load_data_from_json(self, files, type) -> Dataset:
         all_files = []
         for f in files:
-            all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
+            if type == "all":
+                all_files += [SingleData(**d) for t in ["train", "test", "eval"] for d in json.load(open(f, 'r'))[t]]
+            else:
+                all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
         print("Loading {} data of type {}".format(len(all_files), type))
         return self.load_data(all_files)
 

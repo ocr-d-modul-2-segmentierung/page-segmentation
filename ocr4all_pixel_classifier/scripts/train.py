@@ -48,6 +48,9 @@ def main():
                         help='Network architecture to use for training')
     parser.add_argument("--gpu-allow-growth", action="store_true",
                         help="set allow_growth option for Tensorflow GPU. Use if getting CUDNN_INTERNAL_ERROR")
+    parser.add_argument("--ignore-types-from-file", action="store_true",
+                        help="Ignore the train/test/eval associations given in the dataset files, use only splitfile "
+                             "or --train / --test / --eval parameters for association")
     # aliases to support legacy names of options
     parser.add_argument("--l_rate", type=float, help=argparse.SUPPRESS)
     parser.add_argument("--target_line_height", type=int, help=argparse.SUPPRESS)
@@ -88,11 +91,10 @@ def main():
 
     image_map = load_image_map_from_file(args.color_map)
     dataset_loader = DatasetLoader(args.target_line_height, image_map)
-    train_data = dataset_loader.load_data_from_json(args.train, "train")
-    test_data = dataset_loader.load_data_from_json(args.test, "test")
-    print(dataset_loader.color_map)
 
-    eval_data = dataset_loader.load_data_from_json(args.eval, "eval")
+    train_data = dataset_loader.load_data_from_json(args.train, "all" if args.ignore_types_from_file else "train")
+    test_data = dataset_loader.load_data_from_json(args.test, "all" if args.ignore_types_from_file else "test")
+    eval_data = dataset_loader.load_data_from_json(args.eval, "all" if args.ignore_types_from_file else "eval")
 
     settings = TrainSettings(
         n_epoch=args.n_epoch,

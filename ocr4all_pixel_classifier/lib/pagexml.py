@@ -58,6 +58,7 @@ class MaskSetting(NamedTuple):
     pcgts_version: Optional[PCGTSVersion] = None  # autodetect if not given
     line_width: int = 5
     capital_is_text: bool = False
+    use_xml_filename: bool = False # if true, use the xml file's base name instead of the PageXML filename attribute for output
 
 
 class PageXMLTypes(enum.Enum):
@@ -146,7 +147,7 @@ class MaskGenerator:
     def save(self, file, output_dir):
         a = get_xml_regions(file, self.settings)
         mask_pil = page_region_to_mask(a, self.settings)
-        filename_wo_ext = os.path.splitext(os.path.basename(a.filename))[0]
+        filename_wo_ext = os.path.splitext(os.path.basename(file if self.settings.use_xml_filename else a.filename))[0]
         os.makedirs(output_dir, exist_ok=True)
         mask_pil.save(os.path.join(output_dir, filename_wo_ext + '.mask.' + self.settings.mask_extension))
 
