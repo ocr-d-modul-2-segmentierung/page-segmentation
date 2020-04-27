@@ -52,7 +52,8 @@ def main():
 
     pool = multiprocessing.Pool(int(args.threads))
     mask_gen = MaskGenerator(MaskSetting(mask_type=MaskType(args.setting), mask_extension=args.mask_extension,
-                                         pcgts_version=args.pcgts_version, line_width=args.line_width))
+                                         pcgts_version=args.pcgts_version, line_width=args.line_width,
+                                         use_xml_filename=args.use_input_filename))
 
     files = glob.glob(args.input_dir + '/*.xml')
     from itertools import product
