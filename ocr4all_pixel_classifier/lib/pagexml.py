@@ -31,12 +31,14 @@ class PCGTSVersion(enum.Enum):
     PCGTS2019 = '2019'
     PCGTS2017 = '2017'
     PCGTS2013 = '2013'
+    PCGTS2010 = '2010'
 
     def get_namespace(self):
         return {
             PCGTSVersion.PCGTS2019: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15',
             PCGTSVersion.PCGTS2017: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15',
-            PCGTSVersion.PCGTS2013: 'https://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15',
+            PCGTSVersion.PCGTS2013: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15',
+            PCGTSVersion.PCGTS2010: 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19',
         }[self]
 
     @staticmethod
@@ -78,6 +80,8 @@ class PageXMLTypes(enum.Enum):
     ENDNOTE = ('endnote', (0, 255, 128))
     FOOTER = ('footer', (255, 128, 128))
     FOOTNOTE = ('footnote', (128, 255, 128))
+    FOOTNOTE_CONTINUED = ('footnote-continued', (128, 255, 128))
+    UNKNOWN = ('', (10, 10, 10))
 
     def __new__(cls, value, color):
         obj = object.__new__(cls)
