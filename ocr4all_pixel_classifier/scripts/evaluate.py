@@ -136,11 +136,11 @@ def eval_page(page, eval_map, model_map, verbose, csv):
 
     if verbose:
         if csv:
-            print("{},text,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f}"
-                      .format(bin_p, *text_matches, *f1_measures(*text_matches)))
-            print("{},image,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f}"
-                  .format(bin_p, page, *image_matches, *f1_measures(*image_matches)))
-            print("{},textcc,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f}"
+            print("{},text,{},{},{},{},{},{}"
+                  .format(bin_p, *text_matches, *f1_measures(*text_matches)))
+            print("{},image,{},{},{},{},{},{}"
+                  .format(bin_p, *image_matches, *f1_measures(*image_matches)))
+            print("{},textcc,{},{},{},{},{},{}"
                   .format(bin_p, *text_matches_cc, *f1_measures(*text_matches_cc)))
         else:
             print("T: {:<10} / {:<10} / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
