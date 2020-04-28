@@ -32,8 +32,8 @@ def main():
     parser.add_argument("--csv", action="store_true", help="enable csv output")
     args = parser.parse_args()
 
-    if args.csv and args.verbose:
-        parser.error("--csv and --verbose are currently not compatible")
+    #if args.csv and args.verbose:
+    #    parser.error("--csv and --verbose are currently not compatible")
 
     if bool(args.color_map_model) != bool(args.color_map_eval):
         parser.error("color map is only useful if given for both model and evaluation data set")
@@ -63,8 +63,10 @@ def main():
     correct_total = np.zeros([2])
     text_tpfpfn_cc = np.zeros([3])
 
-    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map, verbose=args.verbose)
+    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map, verbose=args.verbose, csv=args.csv)
 
+    if args.csv and args.verbose:
+        print('Image,Category,TP,FP,FN,Precision,Recall,F1')
     with multiprocessing.Pool(processes=args.threads) as p:
         for match in tqdm(p.imap(parfunc, zip(args.masks, args.preds, args.binary)), total=len(args.masks)):
         #for page in zip(args.masks, args.preds, args.binary):
@@ -114,7 +116,7 @@ def csv_total(category: str, counts: np.ndarray):
         .format(category, ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
-def eval_page(page, eval_map, model_map, verbose):
+def eval_page(page, eval_map, model_map, verbose, csv):
     mask_p, pred_p, bin_p = page
     mask = rgb_to_label(imread(mask_p), eval_map)
     pred = rgb_to_label(imread(pred_p), model_map)
@@ -133,12 +135,20 @@ def eval_page(page, eval_map, model_map, verbose):
     correct = total_accuracy(mask[fg], pred[fg])
 
     if verbose:
-        print("T: {:<10} / {:<10} / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
-              .format(*text_matches, *f1_measures(*text_matches), bin_p))
-        print("I: {:<10} / {:<10} / / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
-              .format(*image_matches, *f1_measures(*image_matches), bin_p))
-        print("CC: {:<10} / {:<10} / / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
-              .format(*text_matches_cc, *f1_measures(*text_matches_cc), bin_p))
+        if csv:
+            print("{},text,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f},{:>20}"
+                      .format(bin_p, *text_matches, *f1_measures(*text_matches)))
+            print("{},image,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f},{:>20}"
+                  .format(bin_p, page, *image_matches, *f1_measures(*image_matches)))
+            print("{},textcc,{:<10},{:<10},{:<10},{:<5f},{:<5f},{:<5f},{:>20}"
+                  .format(bin_p, *text_matches_cc, *f1_measures(*text_matches_cc)))
+        else:
+            print("T: {:<10} / {:<10} / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
+                  .format(*text_matches, *f1_measures(*text_matches), bin_p))
+            print("I: {:<10} / {:<10} / / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
+                  .format(*image_matches, *f1_measures(*image_matches), bin_p))
+            print("CC: {:<10} / {:<10} / / {:<10} -> Prec: {:<5f}, Rec: {:<5f}, F1{:<5f} {:>20}"
+                  .format(*text_matches_cc, *f1_measures(*text_matches_cc), bin_p))
 
     return MatchResults(text_matches, image_matches, text_matches_cc, correct)
 
