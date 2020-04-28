@@ -124,7 +124,11 @@ def eval_page(page, eval_map, model_map, verbose, csv):
 
     cceval = ConnectedComponentEval(mask, pred, fg).only_label(1, 1.0)
 
-    text_matches_cc = sum(cceval.run_per_component(cc_matching(1, 1, 0.1, assume_filtered=True)))
+    text_cc_eval = list(cceval.run_per_component(cc_matching(1, 1, 0.1, assume_filtered=True)))
+    if len(text_cc_eval) == 0:
+        text_matches_cc = [0, 0, 0]
+    else:
+        text_matches_cc = sum(text_cc_eval)
     # image_matches_cc = sum(cceval.run_per_component(cc_matching(2, 0.9)))
     # image_tpfpfn_cc += image_matches_cc
 
