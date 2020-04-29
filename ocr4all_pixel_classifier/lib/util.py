@@ -36,12 +36,19 @@ def imread(path, as_gray=False):
 
 
 def imread_bin(path, white_is_fg=False):
+    """
+    Read a binary image, where the returned Matrix contains True for foreground
+    pixels and false for background pixels.
+    By default, black is assumed as foreground.
+    :param: white_is_fg invert image
+    """
+
     pil_image = Image.open(path)
     bin = np.asarray(pil_image.convert('1'))
     if white_is_fg:
-        return not bin
-    else:
         return bin
+    else:
+        return np.logical_not(bin)
 
 
 def match_filenames(base_files: List[str], *file_lists: str) -> Tuple[bool, Optional[str]]:
