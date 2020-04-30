@@ -199,7 +199,9 @@ def get_xml_regions(xml_file, setting: MaskSetting) -> PageRegions:
         elif setting.mask_type == setting.mask_type.BASE_LINE:
             region_by_types += nested_child_regions(child, namespaces, 'pcgts:Baseline')
 
-    for child in root.findall('.//pcgts:ImageRegion', namespaces):
+    from itertools import chain
+    for child in chain(root.findall('.//pcgts:ImageRegion', namespaces),
+            root.findall('.//pcgts:GraphicRegion', namespaces)):
         if setting.mask_type == setting.mask_type.TEXT_GRAPHICS or setting.mask_type == setting.mask_type.ALLTYPES:
             coords = child.find('pcgts:Coords', namespaces)
             if coords is not None:
