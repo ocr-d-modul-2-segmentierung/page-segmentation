@@ -1,5 +1,6 @@
 from typing import Union, List, Tuple, Dict
 
+import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -41,6 +42,13 @@ def render_all(size: Tuple[int, int], segment_groups: List[Tuple[RGBColor, List[
         for seg in segments:
             seg.render(canvas, color)
     return pil_image
+
+
+def render_ocv_contours(base_image: Image, contours: List[np.ndarray], color_rgb: np.ndarray):
+    color_bgr = (color_rgb).tolist()  # convert to opencv's BGR color format
+    image_arr = np.asarray(base_image)
+    cv2.drawContours(image_arr, contours, -1, color_bgr, cv2.FILLED)
+    return Image.fromarray(image_arr)
 
 
 @dataclass

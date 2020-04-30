@@ -23,6 +23,7 @@ class Masks:
     color: np.ndarray
     overlay: np.ndarray
     inverted_overlay: np.ndarray
+    fg_color_mask: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -112,6 +113,8 @@ class Predictor:
         overlay_mask[foreground == 0] = 0
         inverted_overlay_mask = color_mask.copy()
         inverted_overlay_mask[inv_binary == 0] = 0
+        fg_color_mask = color_mask.copy()
+        fg_color_mask[foreground != 0] = 0
 
         def float_color_to_uint(arr: np.ndarray) -> np.ndarray:
             return (arr * 255).astype(np.uint8)
@@ -119,7 +122,8 @@ class Predictor:
         return Masks(
             color=color_mask,
             overlay=overlay_mask,
-            inverted_overlay=inverted_overlay_mask
+            inverted_overlay=inverted_overlay_mask,
+            fg_color_mask=fg_color_mask,
         )
 
 
