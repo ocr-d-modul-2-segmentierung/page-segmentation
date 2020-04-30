@@ -28,7 +28,7 @@ def imread(path, as_gray=False):
     Read RGB image, remove an eventual alpha channel, and convert to numpy
     """
     pil_image = Image.open(path)
-    if pil_image.mode == 'RGBA':
+    if pil_image.mode in ('RGBA', 'P'):
         pil_image = pil_image.convert('RGB')
     if as_gray:
         pil_image = pil_image.convert('L')
