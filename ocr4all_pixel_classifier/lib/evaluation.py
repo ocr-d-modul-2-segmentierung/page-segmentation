@@ -58,10 +58,11 @@ def cc_matching(label: int, threshold_tp: float, threshold_fp: float, assume_fil
     # return (1,0,0) for TP, (0,1,0) for FP, (0,0,1) for FN
     def match(mask, pred):
         size = np.size(mask)
-        pred_match = np.count_nonzero(pred == label) / size >= threshold_fp
+        pred_match_fp = np.count_nonzero(pred == label) / size >= threshold_fp
+        pred_match_tp = np.count_nonzero(pred == label) / size >= threshold_tp
         mask_match = np.count_nonzero(mask == label) / size >= threshold_tp
         return np.array(
-            [int(pred_match and mask_match), int(pred_match and not mask_match), int(mask_match and not pred_match)])
+            [int(pred_match_tp and mask_match), int(pred_match_fp and not mask_match), int(mask_match and not pred_match_tp)])
 
     return match
 
