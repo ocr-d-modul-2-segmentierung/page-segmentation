@@ -30,6 +30,13 @@ def main():
                         type=int, default=multiprocessing.cpu_count(),
                         help="Number of threads to use")
     parser.add_argument("--csv", action="store_true", help="enable csv output")
+    cceval_args = parser.add_argument_group("Connected Component Evaluation")
+    cceval_args.add_argument("-T", "--cc-threshold-tp", type=float, default=1.0,
+            help="ratio of pixels required for a true positive")
+    cceval_args.add_argument("-F", "--cc-threshold-fp", type=float, default=0.1,
+            help="ratio of pixels required for a false positive")
+    cceval_args.add_argument("-M", "--cc-threshold-mask", type=float, default=1.0,
+            help="ratio of pixels required for mask component to be considered text")
     args = parser.parse_args()
 
     #if args.csv and args.verbose:
@@ -63,7 +70,7 @@ def main():
     correct_total = np.zeros([2])
     text_tpfpfn_cc = np.zeros([3])
 
-    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map, verbose=args.verbose, csv=args.csv)
+    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map, args=args)
 
     if args.csv and args.verbose:
         print('Image,Category,TP,FP,FN,Precision,Recall,F1')
@@ -116,15 +123,20 @@ def csv_total(category: str, counts: np.ndarray):
         .format(category, ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
-def eval_page(page, eval_map, model_map, verbose, csv):
+def eval_page(page, eval_map, model_map, args):
     mask_p, pred_p, bin_p = page
     mask = rgb_to_label(imread(mask_p), eval_map)
     pred = rgb_to_label(imread(pred_p), model_map)
     fg = imread_bin(bin_p)
 
-    cceval = ConnectedComponentEval(mask, pred, fg).only_label(1, 1.0)
+    cceval = ConnectedComponentEval(mask, pred, fg).only_label(1,
+            args.cc_threshold_mask)
 
-    text_cc_eval = list(cceval.run_per_component(cc_matching(1, 1, 0.1, assume_filtered=True)))
+    text_cc_eval = list(cceval.run_per_component(cc_matching(1,
+        threshold_tp=args.cc_threshold_tp,
+        threshold_fp=args.cc_threshold_fp,
+        threshold_mask=args.cc_threshold_mask,
+        assume_filtered=True)))
     if len(text_cc_eval) == 0:
         text_matches_cc = [0, 0, 0]
     else:
@@ -138,8 +150,8 @@ def eval_page(page, eval_map, model_map, verbose, csv):
 
     correct = total_accuracy(mask[fg], pred[fg])
 
-    if verbose:
-        if csv:
+    if args.verbose:
+        if args.csv:
             print("{},text,{},{},{},{},{},{}"
                   .format(bin_p, *text_matches, *f1_measures(*text_matches)))
             print("{},image,{},{},{},{},{},{}"
