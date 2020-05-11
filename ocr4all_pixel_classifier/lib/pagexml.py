@@ -67,6 +67,8 @@ class PageXMLTypes(enum.Enum):
     PARAGRAPH = ('paragraph', (255, 0, 0))
     IMAGE = ('ImageRegion', (0, 255, 0))
     GRAPHIC = ('GraphicRegion', (0, 255, 0))
+    TABLE = ('TableRegion', (0, 128, 0))
+    MATHS = ('MathsRegion', (0, 0, 128))
     HEADING = ('heading', (0, 0, 255))
     HEADER = ('header', (0, 255, 255))
     CATCH_WORD = ('catch-word', (255, 255, 0))
@@ -165,12 +167,13 @@ def string_to_lp(points: str):
     return lp_points
 
 
-def coords_for_element(element, namespaces, tag: str = 'pcgts:Coords') -> Optional[Region]:
+def coords_for_element(element, namespaces, tag: str = 'pcgts:Coords', type: Optional[PageXMLTypes] = None) -> Optional[Region]:
     coords = element.find(tag, namespaces)
     if coords is not None:
         polyline = string_to_lp(coords.get('points'))
-        type = element.get('type') if 'type' in element.attrib else 'paragraph'
-        return Region(polygon=polyline, type=PageXMLTypes(type))
+        if not type:
+            type = PageXMLTypes(element.get('type')) if 'type' in element.attrib else PageXMLTypes('paragraph')
+        return Region(polygon=polyline, type=type)
     else:
         return None
 
@@ -198,6 +201,12 @@ def get_xml_regions(xml_file, setting: MaskSetting) -> PageRegions:
             region_by_types += nested_child_regions(child, namespaces, 'pcgts:Coords')
         elif setting.mask_type == setting.mask_type.BASE_LINE:
             region_by_types += nested_child_regions(child, namespaces, 'pcgts:Baseline')
+
+    for region_tag in ["MathsRegion", "TableRegion"]:
+        type = PageXMLTypes(region_tag)
+        for child in root.findall('.//pcgts:'+region_tag, namespaces):
+            if setting.mask_type == MaskType.ALLTYPES:
+                region_by_types.append(coords_for_element(child, namespaces, type=type))
 
     from itertools import chain
     for child in chain(root.findall('.//pcgts:ImageRegion', namespaces),
