@@ -7,15 +7,16 @@ from typing import Generator, List, Callable, Optional, Union
 import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import DatasetLoader, SingleData
+from ocr4all_pixel_classifier.lib.output import output_data
 from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
 from ocr4all_pixel_classifier.lib.predictor import Predictor, PredictSettings, Prediction
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
-from ocr4all_pixel_classifier.lib.util import glob_all
+from ocr4all_pixel_classifier.lib.util import glob_all, preserving_resize
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--load", type=str, required=True,
+    parser.add_argument("--load", metavar="MODEL", type=str, required=True, nargs="+",
                         help="Model to load")
     parser.add_argument("--char_height", type=int, required=False,
                         help="Average height of character m or n, ...")
@@ -74,14 +75,14 @@ def main():
                           image_map,
                           line_heights,
                           target_line_height=args.target_line_height,
-                          model=args.load,
+                          models=args.load,
                           high_res_output=not args.keep_low_res,
                           post_processors=post_processors,
                           gpu_allow_growth=args.gpu_allow_growth,
                           )
 
-    for _, _ in tqdm.tqdm(enumerate(predictions)):
-        pass
+    for _,prediction in tqdm.tqdm(enumerate(predictions)):
+        output_data(args.output, prediction.labels, prediction.data, image_map)
 
 
 def predict(output,
@@ -90,7 +91,7 @@ def predict(output,
             color_map: dict,
             line_heights: Union[List[int], int],
             target_line_height: int,
-            model: str,
+            models: List[str],
             high_res_output: bool = True,
             post_processors: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None,
             gpu_allow_growth: bool = False,
@@ -104,8 +105,7 @@ def predict(output,
         [SingleData(binary_path=b, image_path=i, line_height_px=n)
          for b, i, n in zip(binary_file_paths, image_file_paths, line_heights)]
     )
-
-    settings = PredictSettings(
+    predictors = [Predictor(PredictSettings(
         network=os.path.abspath(model),
         output=output,
         high_res_output=high_res_output,
@@ -113,10 +113,18 @@ def predict(output,
         color_map=color_map,
         n_classes=len(color_map),
         gpu_allow_growth=gpu_allow_growth,
-    )
-    predictor = Predictor(settings)
+    )) for model in models]
 
-    return predictor.predict(data)
+    if len(predictors) == 1:
+        predictor = predictors[0]
+        yield from predictor.predict(data)
+    else:
+        for singledata in data:
+            all_model_preds = [predictor.predict_single(singledata) for predictor in reversed(predictors)]
+            all_probs = [p.probabilities for p in all_model_preds]
+            average_probabilities = np.mean(np.array(all_probs), axis=0)
+            labels = preserving_resize(np.argmax(average_probabilities, axis=2), singledata.original_shape)
+            yield Prediction(labels, average_probabilities, singledata)
 
 
 if __name__ == "__main__":

@@ -114,14 +114,3 @@ class ConnectedComponentEval:
             selection = bbox(self.labels) == i
             if self._filter(selection, bbox):
                 yield self._call_masked(selection, func, bbox)
-
-    def sum(self, func: Callable[[np.ndarray, np.ndarray], int]) -> int:
-        sum = 0
-        for i in range(1, self.num_labels):
-            selection = self.labels == i
-            if self._filter(selection):
-                sum += self._call_masked(selection, func)
-        return sum
-
-    def average(self, func: Callable[[np.ndarray, np.ndarray], float]) -> float:
-        return np.average([self._call_masked(i, func) for i in range(1, self.num_labels) if self._filter(i)])

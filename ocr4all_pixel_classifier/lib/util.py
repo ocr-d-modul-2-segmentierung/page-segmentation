@@ -74,5 +74,16 @@ def match_filenames(base_files: List[str], *file_lists: str) -> Tuple[bool, Opti
     return True, None
 
 
+def preserving_resize(image: np.ndarray, target_shape) -> np.ndarray:
+    """
+    Resizes given image to target_shape while preserving values (i.e. no anti aliasing or range change)
+    :param image: input image
+    :param target_shape: target_shape
+    :return: resized array
+    """
+    from skimage.transform import resize
+    return resize(image, target_shape, order=0, anti_aliasing=False, preserve_range=True)
+
+
 def glob_all(filenames):
     return [g for f in filenames for g in glob.glob(f)]

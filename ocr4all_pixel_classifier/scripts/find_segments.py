@@ -14,7 +14,8 @@ from tqdm import tqdm
 from ocr4all_pixel_classifier.lib.dataset import SingleData, color_to_label, label_to_colors
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
 from ocr4all_pixel_classifier.lib.pc_segmentation import find_segments, get_text_contours
-from ocr4all_pixel_classifier.lib.predictor import PredictSettings, Predictor, Masks
+from ocr4all_pixel_classifier.lib.predictor import PredictSettings, Predictor
+from ocr4all_pixel_classifier.lib.output import Masks
 from ocr4all_pixel_classifier.lib.util import glob_all, imread, imread_bin
 from ocr4all_pixel_classifier.lib.xycut import render_all, render_ocv_contours
 from ocr4all_pixel_classifier.scripts.compute_image_normalizations import compute_char_height
