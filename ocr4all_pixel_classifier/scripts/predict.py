@@ -7,7 +7,7 @@ from typing import Generator, List, Callable, Optional, Union
 import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import DatasetLoader, SingleData
-from ocr4all_pixel_classifier.lib.output import output_data
+from ocr4all_pixel_classifier.lib.output import output_data, scale_to_original_shape
 from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
 from ocr4all_pixel_classifier.lib.predictor import Predictor, PredictSettings, Prediction
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
@@ -81,7 +81,7 @@ def main():
                           gpu_allow_growth=args.gpu_allow_growth,
                           )
 
-    for _,prediction in tqdm.tqdm(enumerate(predictions)):
+    for _, prediction in tqdm.tqdm(enumerate(predictions)):
         output_data(args.output, prediction.labels, prediction.data, image_map)
 
 
@@ -123,8 +123,10 @@ def predict(output,
             all_model_preds = [predictor.predict_single(singledata) for predictor in reversed(predictors)]
             all_probs = [p.probabilities for p in all_model_preds]
             average_probabilities = np.mean(np.array(all_probs), axis=0)
-            labels = preserving_resize(np.argmax(average_probabilities, axis=2), singledata.original_shape)
-            yield Prediction(labels, average_probabilities, singledata)
+            pred = np.argmax(average_probabilities, axis=2)
+            if high_res_output:
+                singledata, pred = scale_to_original_shape(singledata, pred)
+            yield Prediction(pred, average_probabilities, singledata)
 
 
 if __name__ == "__main__":
