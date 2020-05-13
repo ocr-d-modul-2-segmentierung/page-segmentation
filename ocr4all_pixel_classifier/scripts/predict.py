@@ -8,7 +8,7 @@ import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import DatasetLoader, SingleData
 from ocr4all_pixel_classifier.lib.output import output_data, scale_to_original_shape
-from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
+from ocr4all_pixel_classifier.lib.postprocess import find_postprocessor, postprocess_help
 from ocr4all_pixel_classifier.lib.predictor import Predictor, PredictSettings, Prediction
 from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
 from ocr4all_pixel_classifier.lib.util import glob_all, preserving_resize
@@ -33,13 +33,18 @@ def main():
     parser.add_argument("--keep_low_res", action="store_true",
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
     parser.add_argument("--cc_majority", action="store_true",
-                        help="classify all pixels of each connected component as most frequent class")
+                        help="DEPRECATED: use --postprocess instead. classify all pixels of each connected component as most frequent class.")
+    parser.add_argument("--postprocess", type=str, nargs="+",
+                        choices=["cc_majority", "bounding_boxes"],
+                        help="add postprocessor functions to run on the prediction. use 'list' or 'help' to show available postprocessors")
     parser.add_argument("--color_map", type=str, required=True,
                         help="color_map to load")
     parser.add_argument("--gpu_allow_growth", action="store_true")
     args = parser.parse_args()
 
-    os.makedirs(args.output, exist_ok=True)
+    if "list" in args.postprocess or "help" in args.postprocess:
+        print(postprocess_help())
+        exit(0)
 
     image_file_paths = sorted(glob_all(args.images))
     binary_file_paths = sorted(glob_all(args.binary))
@@ -63,9 +68,12 @@ def main():
             raise Exception("Number of norm files must be one or equals the number of image files")
         line_heights = [json.load(open(n))["char_height"] for n in norm_file_paths]
 
-    post_processors = []
+    post_processors = [find_postprocessor(p) for p in args.postprocess]
     if args.cc_majority:
+        from ocr4all_pixel_classifier.lib.postprocess import vote_connected_component_class
         post_processors += [vote_connected_component_class]
+
+    os.makedirs(args.output, exist_ok=True)
 
     image_map = load_image_map_from_file(args.color_map)
 
