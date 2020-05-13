@@ -61,7 +61,10 @@ def main():
                               normalizations_dir=args.normalizations_dir,
                               verify_filenames=args.verify_filenames)
 
-    single_split(args, data_files)
+    if args.n_splits:
+        multi_split(args, data_files)
+    else:
+        single_split(args, data_files)
 
 
 def single_split(args, data_files):
