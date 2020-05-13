@@ -1,5 +1,5 @@
 import enum
-from collections import Callable
+from typing import Callable
 
 import cv2
 import numpy as np
@@ -53,6 +53,7 @@ def postprocess_help():
         "cc_majority:    classify all pixels of each connected component as most frequent class.\n"
         "bounding_boxes: replace each connected component in the prediction with its bounding box.\n"
     )
+
 
 POSTPROCESSORS = {
     'ccmajority': vote_connected_component_class,
