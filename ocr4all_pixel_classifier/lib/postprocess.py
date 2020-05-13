@@ -60,6 +60,6 @@ POSTPROCESSORS = {
     'ccvote': vote_connected_component_class,
     'voteconnectedcomponents': vote_connected_component_class,
     'votecomponents': vote_connected_component_class,
-    'bounding_boxes': add_bounding_boxes,
+    'boundingboxes': add_bounding_boxes,
     'bbox': add_bounding_boxes,
 }
