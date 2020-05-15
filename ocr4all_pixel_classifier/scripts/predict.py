@@ -34,7 +34,7 @@ def main():
                         help="keep low resolution prediction instead of rescaling output to orignal image size")
     parser.add_argument("--cc_majority", action="store_true",
                         help="DEPRECATED: use --postprocess instead. classify all pixels of each connected component as most frequent class.")
-    parser.add_argument("--postprocess", type=str, nargs="+",
+    parser.add_argument("--postprocess", type=str, nargs="+", default=[],
                         choices=["cc_majority", "bounding_boxes"],
                         help="add postprocessor functions to run on the prediction. use 'list' or 'help' to show available postprocessors")
     parser.add_argument("--color_map", type=str, required=True,
