@@ -75,7 +75,8 @@ def main():
     text_tpfpfn_cc = np.zeros([3])
 
     parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map,
-            verbose=args.verbose, csv=args.csv, singleclass=args.singleclass)
+            verbose=args.verbose, csv=args.csv, singleclass=args.singleclass,
+            args=args)
 
     if args.csv and args.verbose:
         print('Image,Category,TP,FP,FN,Precision,Recall,F1')
@@ -128,7 +129,7 @@ def csv_total(category: str, counts: np.ndarray):
         .format(category, ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
-def eval_page(page, eval_map, model_map, verbose, csv, singleclass):
+def eval_page(page, eval_map, model_map, verbose, csv, singleclass, args):
     mask_p, pred_p, bin_p = page
     mask = rgb_to_label(imread(mask_p), eval_map)
     pred = rgb_to_label(imread(pred_p), model_map)
