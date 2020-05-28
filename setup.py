@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='ocr4all_pixel_classifier',
-    version='0.2.2',
+    version='0.3.0',
     packages=find_packages(),
     long_description=long_description,
 
