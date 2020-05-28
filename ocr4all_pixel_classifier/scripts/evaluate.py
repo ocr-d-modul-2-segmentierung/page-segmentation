@@ -37,6 +37,9 @@ def main():
             help="ratio of pixels required for a false positive")
     cceval_args.add_argument("-M", "--cc-threshold-mask", type=float, default=1.0,
             help="ratio of pixels required for mask component to be considered text")
+    parser.add_argument("--verify-filenames", action="store_true")
+    parser.add_argument("--singleclass", action="store_true", help="evaluate as"
+            "binary classificator by treating background and image class as same")
     args = parser.parse_args()
 
     #if args.csv and args.verbose:
@@ -49,9 +52,10 @@ def main():
         parser.error("Number of masks, predictions and binary images not equal ({} / {} / {})"
                      .format(len(args.masks), len(args.preds), len(args.binary)))
 
-    files_match, err = match_filenames(args.binary, args.masks, args.preds)
-    if not files_match:
-        parser.error("Error in file arguments: " + err)
+    if args.verify_filenames:
+        files_match, err = match_filenames(args.binary, args.masks, args.preds)
+        if not files_match:
+            parser.error("Error in file arguments: " + err)
 
     # image_tpfpfn_cc = np.zeros([3])
 
@@ -70,7 +74,8 @@ def main():
     correct_total = np.zeros([2])
     text_tpfpfn_cc = np.zeros([3])
 
-    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map, args=args)
+    parfunc = partial(eval_page, eval_map=eval_map, model_map=model_map,
+            verbose=args.verbose, csv=args.csv, singleclass=args.singleclass)
 
     if args.csv and args.verbose:
         print('Image,Category,TP,FP,FN,Precision,Recall,F1')
@@ -123,10 +128,12 @@ def csv_total(category: str, counts: np.ndarray):
         .format(category, ttp, tfp, tfn, *f1_measures(ttp, tfp, tfn))
 
 
-def eval_page(page, eval_map, model_map, args):
+def eval_page(page, eval_map, model_map, verbose, csv, singleclass):
     mask_p, pred_p, bin_p = page
     mask = rgb_to_label(imread(mask_p), eval_map)
     pred = rgb_to_label(imread(pred_p), model_map)
+    if singleclass:
+        pred[pred == 0] = 2
     fg = imread_bin(bin_p)
 
     cceval = ConnectedComponentEval(mask, pred, fg).only_label(1,
@@ -150,8 +157,8 @@ def eval_page(page, eval_map, model_map, args):
 
     correct = total_accuracy(mask[fg], pred[fg])
 
-    if args.verbose:
-        if args.csv:
+    if verbose:
+        if csv:
             print("{},text,{},{},{},{},{},{}"
                   .format(bin_p, *text_matches, *f1_measures(*text_matches)))
             print("{},image,{},{},{},{},{},{}"
