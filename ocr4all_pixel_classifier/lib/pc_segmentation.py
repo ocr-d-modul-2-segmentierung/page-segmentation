@@ -5,13 +5,13 @@ from typing import Dict, Tuple, List, Union
 import cv2
 import numpy as np
 
-from ocr4all_pixel_classifier.lib.xycut import do_xy_cut, Segment
+from ocr4all_pixel_classifier.lib.xycut import do_xy_cut, RectSegment, CVContour
 
 ColorMapping = Dict[str, np.ndarray]
 
 
-def seg(left_upper: Tuple[int, int], right_lower: Tuple[int, int]) -> Segment:
-    return Segment(left_upper[0], left_upper[1], right_lower[0], right_lower[1])
+def seg(left_upper: Tuple[int, int], right_lower: Tuple[int, int]) -> RectSegment:
+    return RectSegment(left_upper[0], left_upper[1], right_lower[0], right_lower[1])
 
 
 DEFAULT_COLOR_MAPPING = {
@@ -22,7 +22,7 @@ DEFAULT_COLOR_MAPPING = {
 
 def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_height: int,
                   color_mapping: ColorMapping, only_images=False) \
-        -> Union[Tuple[List[Segment], List[Segment]], List[Segment]]:
+        -> Tuple[List[RectSegment], List[RectSegment]]:
     # Scale image to specific height for more generic usage of threshold values
     scale_percent = resize_height / image.shape[0]
     height = resize_height
@@ -48,14 +48,17 @@ def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_
                                split_size_vertical,
                                color_mapping["image"])
 
+    segments_image = scale_all(segments_image, 1.0 / absolute_resize_factor)
+
     if only_images:
-        return scale_all(segments_image, 1.0 / absolute_resize_factor)
+        segments_text = []
     else:
         segments_text = do_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
                                   split_size_vertical,
                                   color_mapping["text"])
-        return scale_all(segments_text, 1.0 / absolute_resize_factor), \
-               scale_all(segments_image, 1.0 / absolute_resize_factor)
+        segments_text = scale_all(segments_image, 1.0 / absolute_resize_factor)
+
+    return segments_text, segments_image
 
 
 def dilate(bin_image: np.ndarray):
@@ -114,4 +117,4 @@ def get_text_contours(image, char_height, color_match):
 
     # First contour equals the whole page, so skip it
     # Reverse list to preserve region ordering
-    return contours[1:][::-1]
+    return list(map(CVContour, contours[1:][::-1]))

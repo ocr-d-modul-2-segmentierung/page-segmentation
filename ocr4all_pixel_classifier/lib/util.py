@@ -87,3 +87,10 @@ def preserving_resize(image: np.ndarray, target_shape) -> np.ndarray:
 
 def glob_all(filenames):
     return [g for f in filenames for g in glob.glob(f)]
+
+
+def split_filename(image) -> Tuple[str, str, str]:
+    image = os.path.basename(image)
+    dir = os.path.dirname(image)
+    base, ext = image.split(".", 1)
+    return dir, base, ext

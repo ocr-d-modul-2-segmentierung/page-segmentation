@@ -3,12 +3,12 @@ import json
 import os
 import os.path
 
-# remove when tensorflow#30559 is merged in 1.14.1
-import warnings
-from typing import Tuple, Optional, List, Callable
+from typing import Tuple, Optional, List, Callable, Generator, Type, Any
 
-import cv2
 import numpy as np
+from dataclasses import dataclass
+
+from pypagexml.ds import TextRegionTypeSub, CoordsTypeSub, ImageRegionTypeSub
 from tqdm import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import SingleData, color_to_label, label_to_colors
@@ -17,16 +17,23 @@ from ocr4all_pixel_classifier.lib.pc_segmentation import find_segments, get_text
 from ocr4all_pixel_classifier.lib.predictor import PredictSettings, Predictor
 from ocr4all_pixel_classifier.lib.output import Masks
 from ocr4all_pixel_classifier.lib.util import glob_all, imread, imread_bin
-from ocr4all_pixel_classifier.lib.xycut import render_all, render_ocv_contours
+from ocr4all_pixel_classifier.lib.xycut import render_regions, \
+    render_morphological, render_xycut, AnyRegion
 from ocr4all_pixel_classifier.scripts.compute_image_normalizations import compute_char_height
-
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 DEFAULT_IMAGE_MAP = {(255, 255, 255): [0, 'bg'],
                      (255, 0, 0): [1, 'text'],
                      (0, 255, 0): [2, 'image']}
 
 DEFAULT_REVERSE_IMAGE_MAP = {v[1]: np.array(k) for k, v in DEFAULT_IMAGE_MAP.items()}
+
+
+@dataclass
+class SegmentationResult:
+    text_segments: List[AnyRegion]
+    image_segments: List[AnyRegion]
+    original_shape: Tuple[int, int]
+    path: str
 
 
 def main():
@@ -70,60 +77,80 @@ def main():
     image_map, rev_image_map = post_process_args(args, parser)
 
     if not args.existing_preds_inverted:
-        for image_path, binary_path, char_height in tqdm(
-                zip(args.image_paths, args.binary_paths, args.all_char_heights),
-                unit='pages', total=len(args.image_paths)):
-            masks = create_predictions(args.model, image_path, binary_path, char_height, args.target_line_height,
-                                       args.gpu_allow_growth, image_map)
-            if args.method == 'xycut':
-                overlay = masks.inverted_overlay
-                segment_xycut_overlay(args, char_height, overlay, image_path, rev_image_map)
-            elif args.method == 'morph':
-                segment_morphological(args, char_height, masks.inverted_overlay, masks.fg_color_mask, image_path, rev_image_map)
+        results = predict_and_segment(args, image_map, rev_image_map)
     else:
-        for binary_path, inverted_path, color_path, char_height in tqdm(
-                zip(args.binary_paths, args.existing_inverted_path, args.existing_color_path, args.all_char_heights),
-                unit='pages', total=len(args.existing_inverted_path)):
+        results = segment_existing(args, image_map, rev_image_map)
 
-            overlay = imread(inverted_path)
-            if args.method == 'xycut':
-                segment_xycut_overlay(args, char_height, overlay, inverted_path, rev_image_map)
-            elif args.method == 'morph':
-                binary = imread_bin(binary_path)
-                color_mask = imread(color_path)
-                label_mask = color_to_label(color_mask, image_map)
-                label_mask[binary==0] = 0
-                fg_color_mask = label_to_colors(label_mask, image_map)
-                segment_morphological(args, char_height, overlay, fg_color_mask, inverted_path, rev_image_map)
+    for result in results:
+        create_pagexml(result)
+        if args.render:
+            render_method = {
+                'xycut': render_xycut,
+                'morph': render_morphological
+            }[args.method]
 
-
-def segment_xycut_overlay(args, char_height, overlay, prediction_path, rev_image_map):
-    orig_height, orig_width = overlay.shape[0:2]
-    segments_text, segments_image = find_segments(orig_height, overlay, char_height, args.resize_height,
-                                                  rev_image_map)
-    if args.render:
-        mask_image = render_all((orig_width, orig_height), [
-            (tuple(rev_image_map['text']), segments_text),
-            (tuple(rev_image_map['image']), segments_image),
-        ])
-        _, image_basename, _ = split_filename(prediction_path)
-        os.makedirs(args.output_dir, exist_ok=True)
-        mask_image.save(os.path.join(args.output_dir, image_basename + "." + args.render))
-    # TODO: write pagexml
+            render_regions(args.output_dir, args.render,
+                           result.original_shape,
+                           result.path,
+                           rev_image_map,
+                           render_method,
+                           segments_text=result.text_segments,
+                           segments_image=result.image_segments)
 
 
-def segment_morphological(args, char_height, inverted_overlay, fg_color_mask, prediction_path, rev_image_map):
-    orig_height, orig_width = inverted_overlay.shape[0:2]
-    segments_text = get_text_contours(fg_color_mask, char_height, rev_image_map)
-    segments_image = find_segments(orig_height, inverted_overlay, char_height, args.resize_height, rev_image_map,
-                                   only_images=True)
-    if args.render:
-        mask_image = render_all((orig_width, orig_height), [(tuple(rev_image_map['image']), segments_image), ])
-        mask_image = render_ocv_contours(np.asarray(mask_image), segments_text, rev_image_map["text"])
-        _, image_basename, _ = split_filename(prediction_path)
-        os.makedirs(args.output_dir, exist_ok=True)
-        mask_image.save(os.path.join(args.output_dir, image_basename + "." + args.render))
-    pass
+def predict_and_segment(args, image_map, rev_image_map) -> Generator[SegmentationResult, None, None]:
+    def segment_new_predictions(binary_path, char_height, image_map, image_path, rev_image_map):
+        masks = create_predictions(args.model, image_path, binary_path, char_height, args.target_line_height,
+                                   args.gpu_allow_growth, image_map)
+        overlay = masks.inverted_overlay
+        if args.method == 'xycut':
+            text, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height, rev_image_map)
+        elif args.method == 'morph':
+            text = get_text_contours(masks.fg_color_mask, char_height, rev_image_map)
+            _, image = find_segments(masks.inverted_overlay.shape[0], masks.inverted_overlay, char_height,
+                                     args.resize_height,
+                                     rev_image_map, only_images=True)
+        else:
+            raise Exception("unknown method")
+
+        return SegmentationResult(text, image, overlay.shape[0:2], image_path)
+
+    results = (
+        segment_new_predictions(binary_path, char_height, image_map, image_path, rev_image_map)
+        for image_path, binary_path, char_height in
+        tqdm(
+            zip(args.image_paths, args.binary_paths, args.all_char_heights), unit='pages',
+            total=len(args.image_paths)))
+    return results
+
+
+def segment_existing(args, image_map, rev_image_map) -> Generator[SegmentationResult, None, None]:
+    def segment_existing_pred(binary_path, char_height, color_path, image_map, inverted_path, rev_image_map):
+        overlay = imread(inverted_path)
+        if args.method == 'xycut':
+            text, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height, rev_image_map)
+        elif args.method == 'morph':
+            binary = imread_bin(binary_path)
+            color_mask = imread(color_path)
+            label_mask = color_to_label(color_mask, image_map)
+            label_mask[binary == 0] = 0
+            fg_color_mask = label_to_colors(label_mask, image_map)
+            text = get_text_contours(fg_color_mask, char_height, rev_image_map)
+            _, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height,
+                                     rev_image_map, only_images=True)
+        else:
+            raise Exception("unknown method")
+
+        return SegmentationResult(text, image, overlay.shape[0:2], inverted_path)
+
+    results = (
+        segment_existing_pred(binary_path, char_height, color_path, image_map, inverted_path, rev_image_map)
+        for binary_path, inverted_path, color_path, char_height in
+        tqdm(
+            zip(args.binary_paths, args.existing_inverted_path, args.existing_color_path, args.all_char_heights),
+            unit='pages', total=len(args.existing_inverted_path))
+    )
+    return results
 
 
 def post_process_args(args, parser):
@@ -138,7 +165,7 @@ def post_process_args(args, parser):
             args.binary_paths = [None] * num_files
     elif args.method == "morph" \
             and (args.existing_preds_color or args.existing_preds_inverted) \
-            and not(args.existing_preds_color and args.existing_preds_inverted and args.binary):
+            and not (args.existing_preds_color and args.existing_preds_inverted and args.binary):
         parser.error("Morphology method requires binaries and both existing predictions.\n"
                      "If you want to create new predictions, do not pass -e or -c.")
     elif args.binary:
@@ -175,13 +202,6 @@ def post_process_args(args, parser):
     rev_image_map = {v[1]: np.array(k) for k, v in image_map.items()}
 
     return image_map, rev_image_map
-
-
-def split_filename(image) -> Tuple[str, str, str]:
-    image = os.path.basename(image)
-    dir = os.path.dirname(image)
-    base, ext = image.split(".", 1)
-    return dir, base, ext
 
 
 def predict_masks(output: Optional[str],
@@ -229,6 +249,29 @@ def create_predictions(model, image_path, binary_path, char_height, target_line_
                          post_processors=None,
                          gpu_allow_growth=gpu_allow_growth,
                          )
+
+
+def create_pagexml(result: SegmentationResult, output_file: Optional[str] = None):
+    import pypagexml as pxml
+    meta = pxml.ds.MetadataTypeSub(Creator="ocr4all_pixel_classifier", Created=pxml.ds.iso_now())
+    doc = pxml.new_document_from_image(result.path, meta)
+
+    def add_segment(segment: AnyRegion, index: int, idprefix: str, region_type: Type,
+                    region_adder: Callable[[Any], None]):
+        coords = segment.polygon_coords()
+        id = f"{idprefix}{index}"
+        region = region_type(id=id, Coords=CoordsTypeSub.with_points(coords))
+        region_adder(region)
+
+    for i, textseg in enumerate(result.text_segments):
+        add_segment(textseg, i, "tr", TextRegionTypeSub, doc.get_Page().add_TextRegion)
+
+    for i, imageseg in enumerate(result.image_segments):
+        add_segment(imageseg, i, "ir", ImageRegionTypeSub, doc.get_Page().add_ImageRegion)
+
+    if output_file is None:
+        output_file = result.path + ".xml"
+    doc.saveAs(result.path + ".xml", level=0)
 
 
 if __name__ == "__main__":
