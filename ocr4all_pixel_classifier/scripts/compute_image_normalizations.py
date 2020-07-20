@@ -6,36 +6,10 @@ import sys
 from functools import partial
 from math import isnan
 
-import cv2
 import numpy as np
 import tqdm
 
-
-def compute_char_height(file_name: str, inverse: bool):
-    if not os.path.exists(file_name):
-        raise Exception("File does not exist at {}".format(file_name))
-
-    img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
-    ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    if not inverse:
-        img = cv2.subtract(255, img)
-
-    # labeled, nr_objects = ndimage.label(img > 128)
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img, 4)
-
-    possible_letter = [False] + [0.5 < (stats[i, cv2.CC_STAT_WIDTH] / stats[i, cv2.CC_STAT_HEIGHT]) < 2
-                                 and 10 < stats[i, cv2.CC_STAT_HEIGHT] < 60
-                                 and 5 < stats[i, cv2.CC_STAT_WIDTH] < 50
-                                 for i in range(1, len(stats))]
-
-    valid_letter_heights = stats[possible_letter, cv2.CC_STAT_HEIGHT]
-
-    valid_letter_heights.sort()
-    try:
-        mode = valid_letter_heights[int(len(valid_letter_heights) / 2)]
-        return mode
-    except IndexError:
-        return None
+from ocr4all_pixel_classifier.lib.image_ops import compute_char_height
 
 
 def compute_normalizations(input_dir, output_dir=None, inverse=False, average_all=True):

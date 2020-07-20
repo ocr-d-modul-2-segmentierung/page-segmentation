@@ -1,5 +1,6 @@
 import glob
 import os
+from random import shuffle
 from typing import Tuple, Optional, List
 
 import numpy as np
@@ -94,3 +95,15 @@ def split_filename(image) -> Tuple[str, str, str]:
     dir = os.path.dirname(image)
     base, ext = image.split(".", 1)
     return dir, base, ext
+
+
+def random_indices(lst) -> List[int]:
+    indices = list(range(len(lst)))
+    shuffle(indices)
+    return indices
+
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]

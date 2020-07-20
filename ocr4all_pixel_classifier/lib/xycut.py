@@ -72,8 +72,8 @@ class RectSegment(Region):
         return [
             (self.x_start, self.y_start),
             (self.x_end, self.y_start),
-            (self.x_start, self.y_end),
             (self.x_end, self.y_end),
+            (self.x_start, self.y_end),
         ]
 
 

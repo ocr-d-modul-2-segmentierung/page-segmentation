@@ -10,6 +10,12 @@ import tqdm
 
 from ocr4all_pixel_classifier.lib.util import imread
 
+DEFAULT_IMAGE_MAP = {(255, 255, 255): [0, 'bg'],
+                     (255, 0, 0): [1, 'text'],
+                     (0, 255, 0): [2, 'image']}
+
+DEFAULT_REVERSE_IMAGE_MAP = {v[1]: np.array(k) for k, v in DEFAULT_IMAGE_MAP.items()}
+
 
 def get_image_file_colors(path_to_mask: str):
     mask = imread(path_to_mask)

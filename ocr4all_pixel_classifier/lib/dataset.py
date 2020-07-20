@@ -1,4 +1,5 @@
 import json
+import math
 import multiprocessing
 import os
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ import tqdm
 from skimage.transform import resize, rescale
 
 from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
-from ocr4all_pixel_classifier.lib.util import imread
+from ocr4all_pixel_classifier.lib.util import imread, random_indices, chunks
 
 
 @dataclass
@@ -273,3 +274,48 @@ class DatasetLoader:
 if __name__ == "__main__":
     loader = DatasetLoader(4, color_map={})
     loader.load_test()
+
+
+def single_split(n_train, n_test, n_eval, data_files):
+    def fraction_or_absolute(part, collection):
+        if 0 < part < 1:
+            return int(part * len(collection))
+        else:
+            return int(part)
+
+    n_eval = fraction_or_absolute(n_eval, data_files)
+    n_test = fraction_or_absolute(n_test, data_files)
+    n_train = fraction_or_absolute(n_train, data_files)
+    if sum([n_eval < 0, n_train < 0, n_test < 0]) > 1:
+        raise Exception("Only one dataset may get all remaining files")
+    if n_eval < 0:
+        n_eval = len(data_files) - n_train - n_test
+    elif n_train < 0:
+        n_train = len(data_files) - n_eval - n_test
+    elif n_test < 0:
+        n_test = len(data_files) - n_eval - n_train
+    if len(data_files) < n_eval + n_train + n_test:
+        raise Exception("The dataset consists of {} files, but eval + train + test = {} + {} + {} = {}".format(
+            len(data_files), n_eval, n_train, n_test,
+            n_eval + n_train + n_test)
+        )
+    indices = random_indices(data_files)
+
+    eval = [data_files[d] for d in indices[:n_eval]]
+    train = [data_files[d] for d in indices[n_eval:n_eval + n_train]]
+    test = [data_files[d] for d in indices[n_eval + n_train:n_eval + n_train + n_test]]
+
+    return train, test, eval
+
+
+def create_splits(data_files: List[str], num_splits: int):
+    input = data_files.copy()
+    shuffle(input)
+    parts = list(chunks(input, math.ceil(len(input) / num_splits)))
+
+    for i in range(num_splits):
+        split = []
+        for chunk in range(len(parts)):
+            if chunk != i:
+                split += parts[chunk]
+        yield split, parts[i]

@@ -12,20 +12,14 @@ from pypagexml.ds import TextRegionTypeSub, CoordsTypeSub, ImageRegionTypeSub
 from tqdm import tqdm
 
 from ocr4all_pixel_classifier.lib.dataset import SingleData, color_to_label, label_to_colors
-from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file
+from ocr4all_pixel_classifier.lib.image_map import load_image_map_from_file, DEFAULT_IMAGE_MAP
 from ocr4all_pixel_classifier.lib.pc_segmentation import find_segments, get_text_contours
 from ocr4all_pixel_classifier.lib.predictor import PredictSettings, Predictor
 from ocr4all_pixel_classifier.lib.output import Masks
 from ocr4all_pixel_classifier.lib.util import glob_all, imread, imread_bin
 from ocr4all_pixel_classifier.lib.xycut import render_regions, \
     render_morphological, render_xycut, AnyRegion
-from ocr4all_pixel_classifier.scripts.compute_image_normalizations import compute_char_height
-
-DEFAULT_IMAGE_MAP = {(255, 255, 255): [0, 'bg'],
-                     (255, 0, 0): [1, 'text'],
-                     (0, 255, 0): [2, 'image']}
-
-DEFAULT_REVERSE_IMAGE_MAP = {v[1]: np.array(k) for k, v in DEFAULT_IMAGE_MAP.items()}
+from ocr4all_pixel_classifier.lib.image_ops import compute_char_height
 
 
 @dataclass
@@ -132,18 +126,23 @@ def segment_existing(args, image_map, rev_image_map) -> Generator[SegmentationRe
         if args.method == 'xycut':
             text, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height, rev_image_map)
         elif args.method == 'morph':
-            binary = imread_bin(binary_path)
-            color_mask = imread(color_path)
-            label_mask = color_to_label(color_mask, image_map)
-            label_mask[binary == 0] = 0
-            fg_color_mask = label_to_colors(label_mask, image_map)
-            text = get_text_contours(fg_color_mask, char_height, rev_image_map)
-            _, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height,
-                                     rev_image_map, only_images=True)
+            image, text = segment_existing_morph(binary_path, char_height, color_path, image_map, overlay,
+                                                 rev_image_map)
         else:
             raise Exception("unknown method")
 
         return SegmentationResult(text, image, overlay.shape[0:2], inverted_path)
+
+    def segment_existing_morph(binary_path, char_height, color_path, image_map, overlay, rev_image_map):
+        binary = imread_bin(binary_path)
+        color_mask = imread(color_path)
+        label_mask = color_to_label(color_mask, image_map)
+        label_mask[binary == 0] = 0
+        fg_color_mask = label_to_colors(label_mask, image_map)
+        text = get_text_contours(fg_color_mask, char_height, rev_image_map)
+        _, image = find_segments(overlay.shape[0], overlay, char_height, args.resize_height,
+                                 rev_image_map, only_images=True)
+        return image, text
 
     results = (
         segment_existing_pred(binary_path, char_height, color_path, image_map, inverted_path, rev_image_map)
@@ -168,20 +167,19 @@ def post_process_args(args, parser):
     elif args.method == "morph" \
             and (args.existing_preds_color or args.existing_preds_inverted) \
             and not (args.existing_preds_color and args.existing_preds_inverted and args.binary):
-        parser.error("Morphology method requires binaries and both existing predictions.\n"
+        return parser.error("Morphology method requires binaries and both existing predictions.\n"
                      "If you want to create new predictions, do not pass -e or -c.")
     elif args.binary:
         args.binary_paths = sorted(glob_all(args.binary))
         args.image_paths = sorted(glob_all(args.images)) if args.images else args.binary_paths
         num_files = len(args.binary_paths)
     elif args.method == "morph":
-        parser.error("Morphology method requires binary images.")
+        return parser.error("Morphology method requires binary images.")
     else:
-        parser.error("Prediction requires binary images. Either supply binaries or existing preds")
-        return
+        return parser.error("Prediction requires binary images. Either supply binaries or existing preds")
 
     if not args.existing_preds_inverted and args.model is None:
-        parser.error("Prediction requires a model")
+        return parser.error("Prediction requires a model")
 
     if args.char_height:
         args.all_char_heights = [args.char_height] * num_files
@@ -243,7 +241,7 @@ def create_predictions(model, image_path, binary_path, char_height, target_line_
     binary = imread_bin(binary_path)
 
     from ocr4all_pixel_classifier.lib.dataset import prepare_images
-    img, bin = prepare_images(binary, binary, target_line_height, char_height)
+    img, bin = prepare_images(image, binary, target_line_height, char_height)
 
     return predict_masks(None,
                          img,
