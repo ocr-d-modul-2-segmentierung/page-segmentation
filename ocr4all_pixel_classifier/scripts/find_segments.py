@@ -60,8 +60,10 @@ def main():
                         help="Use given existing predictions (inverted overlay)")
     parser.add_argument("-c", "--existing-preds-color", type=str, required=False, nargs="+",
                         help="Use given existing predictions (color)")
-    parser.add_argument("-O", "--output-dir", type=str, default=None,
-                        help="target directory for output")
+    parser.add_argument("-o", "--xml-output-dir", type=str, default=None,
+                        help="target directory for PageXML output")
+    parser.add_argument("-O", "--render-output-dir", type=str, default=None,
+                        help="target directory for rendered output")
     parser.add_argument("--load", "--model", type=str, default=None, dest="model",
                         help="load an existing model")
     parser.add_argument("--image-map", "--color_map", type=str, default=None, help="color_map to load",
@@ -82,14 +84,14 @@ def main():
         results = segment_existing(args, image_map, rev_image_map)
 
     for result in results:
-        create_pagexml(result)
+        create_pagexml(result, args.xml_output_dir)
         if args.render:
             render_method = {
                 'xycut': render_xycut,
                 'morph': render_morphological
             }[args.method]
 
-            render_regions(args.output_dir, args.render,
+            render_regions(args.render_output_dir, args.render,
                            result.original_shape,
                            result.path,
                            rev_image_map,
@@ -178,6 +180,9 @@ def post_process_args(args, parser):
         parser.error("Prediction requires binary images. Either supply binaries or existing preds")
         return
 
+    if not args.existing_preds_inverted and args.model is None:
+        parser.error("Prediction requires a model")
+
     if args.char_height:
         args.all_char_heights = [args.char_height] * num_files
     elif args.norm:
@@ -251,7 +256,7 @@ def create_predictions(model, image_path, binary_path, char_height, target_line_
                          )
 
 
-def create_pagexml(result: SegmentationResult, output_file: Optional[str] = None):
+def create_pagexml(result: SegmentationResult, output_dir: Optional[str] = None):
     import pypagexml as pxml
     meta = pxml.ds.MetadataTypeSub(Creator="ocr4all_pixel_classifier", Created=pxml.ds.iso_now())
     doc = pxml.new_document_from_image(result.path, meta)
@@ -269,8 +274,10 @@ def create_pagexml(result: SegmentationResult, output_file: Optional[str] = None
     for i, imageseg in enumerate(result.image_segments):
         add_segment(imageseg, i, "ir", ImageRegionTypeSub, doc.get_Page().add_ImageRegion)
 
-    if output_file is None:
-        output_file = result.path + ".xml"
+    if output_dir is None:
+        output_file = os.path.splitext(result.path)[0] + ".xml"
+    else:
+        output_file = os.path.join(output_dir, os.path.splitext(os.path.basename(output_dir))[0] + ".xml")
     doc.saveAs(result.path + ".xml", level=0)
 
 
