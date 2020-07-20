@@ -11,6 +11,8 @@ and CuDNN 7.
 
 ## Usage
 
+For training and direct usage, install `ocr4all-pixel-classifier-frontend`. This package only contains the library code.
+
 ### Pixel classifier
 
 #### Classification

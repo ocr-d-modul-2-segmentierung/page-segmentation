@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, Tuple, List, Union
+from typing import Dict, Tuple, List
 
 import cv2
 import numpy as np

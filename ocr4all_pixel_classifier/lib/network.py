@@ -1,13 +1,15 @@
-import tensorflow as tf
-import numpy as np
+import logging
+import os
 from typing import Optional
+
+import numpy as np
+import tensorflow as tf
+
 from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
+from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
 from ocr4all_pixel_classifier.lib.trainer import TrainSettings, AugmentationSettings
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData
-import os
-import logging
-from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +33,10 @@ class Network:
                  loss_func=None
                  ):
         """
-        :param model_constructor: function that takes the input layer and number of classes and creates the model
         :param n_classes: number of classes
+        :param model_constructor: function that takes the input layer and number of classes and creates the model
         :param l_rate: learning rate
         :param has_binary:
-        :param fixed_size: resize images to given dimensions
-        :param data_augmentation: preprocessing to apply to data
         :param foreground_masks: keep only mask parts that are foreground in binary image (training only)
         :param model: continue Training
         :param
@@ -67,7 +67,7 @@ class Network:
                         ])
 
         from ocr4all_pixel_classifier.lib.metrics import accuracy, loss, dice_coef, \
-            fgpa, fgpl, jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
+            jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
             , categorical_focal_loss
         from ocr4all_pixel_classifier.lib.layers import GraytoRgb
 

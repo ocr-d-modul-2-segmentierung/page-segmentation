@@ -3,11 +3,10 @@ from dataclasses import dataclass
 from typing import NamedTuple, Generator, List, Callable, Optional
 
 import numpy as np
-import skimage.io as img_io
 
 from ocr4all_pixel_classifier.lib.dataset import Dataset, SingleData
 from ocr4all_pixel_classifier.lib.network import Network, tf_backend_allow_growth
-from ocr4all_pixel_classifier.lib.output import Masks, output_data, scale_to_original_shape, generate_output_masks
+from ocr4all_pixel_classifier.lib.output import Masks, scale_to_original_shape, generate_output_masks
 
 
 class Prediction(NamedTuple):
@@ -71,25 +70,3 @@ class Predictor:
         return generate_output_masks(data, pred, self.settings.color_map)
 
 
-if __name__ == "__main__":
-    from ocr4all_pixel_classifier.lib.dataset import DatasetLoader
-    from ocr4all_pixel_classifier.scripts.generate_image_map import load_image_map_from_file
-
-    dataset_dir = '/home/alexander/Dokumente/virutal_stafflines/'
-    image_map = load_image_map_from_file(os.path.join(dataset_dir, 'image_map.json'))
-    dataset_loader = DatasetLoader(8, color_map=image_map)
-    train_data = dataset_loader.load_data_from_json(
-        [os.path.join(dataset_dir, 't.json')], "train")
-    test_data = dataset_loader.load_data_from_json(
-        [os.path.join(dataset_dir, 't.json')], "test")
-    eval_data = dataset_loader.load_data_from_json(
-        [os.path.join(dataset_dir, 't.json')], "eval")
-    settings = PredictSettings(network='/home/alexander/Dokumente/virutal_stafflines/model.h5')
-    predictor = Predictor(settings)
-    for ind, x in enumerate(predictor.predict(test_data)):
-        image = test_data.data[ind]
-        from matplotlib import pyplot as plt
-
-        plt.imshow(image.image)
-        plt.show()
-        print(x)

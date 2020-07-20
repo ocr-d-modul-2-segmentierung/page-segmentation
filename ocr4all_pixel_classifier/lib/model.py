@@ -1,9 +1,10 @@
-from typing import Callable, Union, List, Tuple
+import enum
 from functools import partial
+from typing import Union, List
+
+import efficientnet.tfkeras as efn
 import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
-import enum
-import efficientnet.tfkeras as efn
 
 Tensors = Union[Tensor, List[Tensor]]
 

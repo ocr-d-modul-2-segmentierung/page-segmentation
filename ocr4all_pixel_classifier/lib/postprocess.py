@@ -1,4 +1,3 @@
-import enum
 from typing import Callable
 
 import cv2

@@ -27,7 +27,6 @@ def total_accuracy(mask: np.ndarray, pred: np.ndarray) -> Tuple[int, int]:
     Calculate total accuracy across all classes
     :param mask: the ground truth mask (2D array with labels)
     :param pred: the prediction (2D array with labels)
-    :param fg: binary image (2D array, 0 is background, 1 is foreground)
     :return: numbers of correct and total elements
     """
     equal = (mask == pred)

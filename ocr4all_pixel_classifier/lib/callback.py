@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import os
-from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
+from ocr4all_pixel_classifier.lib.util import image_to_batch
 
 
 class TrainProgressCallback(tf.keras.callbacks.Callback):
