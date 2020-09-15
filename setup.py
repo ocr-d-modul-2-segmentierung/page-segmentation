@@ -20,7 +20,7 @@ setup(
             'page-segmentation=ocr4all_pixel_classifier.scripts.main:main',  # legacy
         ],
     },
-    install_requires=open("requirements.txt").read().split(),
+    install_requires=open("requirements.in").read().split(),
     extras_require={
         'tf_cpu': ['tensorflow>=2.0.0,<2.1.0'],
         'tf_gpu': ['tensorflow-gpu>=2.0.0,<2.1.0'],
