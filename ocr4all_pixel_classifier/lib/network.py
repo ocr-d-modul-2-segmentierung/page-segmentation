@@ -10,6 +10,7 @@ from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
 from ocr4all_pixel_classifier.lib.trainer import TrainSettings, AugmentationSettings
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData
+from ocr4all.image_map import ImageMap
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class Network:
         :param
         """
         self.architecture = model_constructor.value
-        self._data: Dataset = Dataset([], {})
+        self._data: Dataset = Dataset([], ImageMap({}))
         self.type = type
         self.has_binary = has_binary
         self.foreground_masks = foreground_masks

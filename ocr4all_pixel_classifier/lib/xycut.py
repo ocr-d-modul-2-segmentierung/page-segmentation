@@ -1,15 +1,13 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Union, List, Tuple, Dict, Callable, TypeVar, Any
+from dataclasses import dataclass
+from typing import Union, List, Tuple, Dict, Callable, TypeVar
 
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 from PIL.Image import Image as ImageType
-
-from dataclasses import dataclass
-
-from ocr4all_pixel_classifier.lib.util import split_filename
+from ocr4all.files import split_filename
 
 RGBColor = Tuple[int, int, int]
 
@@ -89,7 +87,7 @@ def render_rect_segments(size: Tuple[int, int], segment_groups: List[Tuple[RGBCo
 
 def render_ocv_contours(base_image: ImageType, contours: List[CVContour], color_rgb: RGBColor):
     color_bgr = np.array(color_rgb).tolist()  # convert to opencv's BGR color format
-    image_arr = np.array(base_image)
+    image_arr = np.asarray(base_image)
     cv2.drawContours(image_arr, list(map(lambda c: c.contour, contours)), -1, color_bgr, cv2.FILLED)
     return Image.fromarray(image_arr)
 
@@ -102,7 +100,8 @@ def render_regions(output_dir: str,
                    orig_shape: Tuple[int, int],
                    prediction_path: str,
                    rev_image_map: Dict[str, RGBColor],
-                   method: Callable[[Tuple[int, int], Dict[str, RGBColor], List[AnyRegion], List[AnyRegion]], ImageType],
+                   method: Callable[
+                       [Tuple[int, int], Dict[str, RGBColor], List[AnyRegion], List[AnyRegion]], ImageType],
                    segments_text: List[AnyRegion],
                    segments_image: List[AnyRegion],
                    ):
@@ -126,7 +125,7 @@ def render_xycut(orig_shape: Tuple[int, int], rev_image_map: Dict[str, RGBColor]
 def render_morphological(orig_shape: Tuple[int, int], rev_image_map: Dict[str, RGBColor],
                          segments_text: List[CVContour], segments_image: List[RectSegment]):
     mask_image = render_rect_segments(orig_shape, [(tuple(rev_image_map['image']), segments_image), ])
-    mask_image = render_ocv_contours(np.asarray(mask_image), segments_text, rev_image_map["text"])
+    mask_image = render_ocv_contours(mask_image, segments_text, rev_image_map["text"])
     return mask_image
 
 

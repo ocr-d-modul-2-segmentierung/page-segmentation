@@ -10,8 +10,8 @@ import numpy as np
 import tqdm
 from skimage.transform import resize, rescale
 
-from ocr4all_pixel_classifier.lib.image_map import rgb_to_label
-from ocr4all_pixel_classifier.lib.util import imread, random_indices, chunks
+from ocr4all.image_map import ImageMap
+from ocr4all.files import imread, random_indices, chunks
 
 
 @dataclass
@@ -32,7 +32,7 @@ class SingleData:
 @dataclass
 class Dataset:
     data: List[SingleData]
-    color_map: dict
+    color_map: ImageMap
 
     def __len__(self):
         return len(self.data)
@@ -177,7 +177,7 @@ def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: in
 
 
 class DatasetLoader:
-    def __init__(self, target_line_height, color_map, prediction=False, max_width=None):
+    def __init__(self, target_line_height, color_map:ImageMap, prediction=False, max_width=None):
         self.target_line_height = target_line_height
         self.prediction = prediction
         self.color_map = color_map
@@ -207,7 +207,7 @@ class DatasetLoader:
             mask = resize(mask, scaled_shape, order=0, anti_aliasing=False, preserve_range=True)
 
             if mask.ndim == 3:
-                mask = rgb_to_label(mask, self.color_map)
+                mask = self.color_map.to_labels(mask)
             elif mask.ndim == 2:
                 u_values = np.unique(mask)
                 for ind, x in enumerate(u_values):
@@ -272,7 +272,7 @@ class DatasetLoader:
 
 
 if __name__ == "__main__":
-    loader = DatasetLoader(4, color_map={})
+    loader = DatasetLoader(4, color_map=ImageMap({}))
     loader.load_test()
 
 

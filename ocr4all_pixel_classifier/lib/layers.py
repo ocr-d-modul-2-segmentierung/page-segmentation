@@ -3,9 +3,10 @@ import tensorflow as tf
 
 class Padding2DTensor(tf.keras.layers.Layer):
 
-    def __init__(self, padding=[1,1],
+    def __init__(self, padding=(1,1),
                  data_format="channels_last", **kwargs):
         self.data_format = data_format
+        self.padding = padding
         super(Padding2DTensor, self).__init__(**kwargs)
 
     def build(self, input_shape):
