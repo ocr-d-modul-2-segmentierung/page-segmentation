@@ -8,3 +8,4 @@ dataclasses
 efficientnet
 lxml
 ocr4all-pylib>=0.1.0
+tensorflow>=2.0.0

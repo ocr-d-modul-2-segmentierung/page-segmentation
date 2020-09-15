@@ -4,7 +4,7 @@ release: requirements.txt
 	pypi-release
 
 
-requirements.txt:
+requirements.txt: requirements.in
 	pip-compile
 
 .PHONY: requirements-devel
