@@ -53,7 +53,7 @@ def cc_equal(threshold: float):
     return lambda pred, mask: np.count_nonzero(pred == mask) / np.size(mask) >= threshold
 
 
-def cc_matching(label: int, threshold_tp: float, threshold_fp: float, threshold_mask: float = None, assume_filtered: bool = False):
+def cc_matching(label: int, threshold_tp: float, threshold_fp: float, threshold_mask: float = None):
     # return (1,0,0) for TP, (0,1,0) for FP, (0,0,1) for FN
     if not threshold_mask:
         threshold_mask = threshold_tp

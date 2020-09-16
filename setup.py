@@ -14,12 +14,6 @@ setup(
     author="Christoph Wick, Alexander Hartelt, Alexander Gehrke",
     author_email="christoph.wick@informatik.uni-wuerzburg.de, alexander.hartelt@informatik.uni-wuerzburg.de, alexander.gehrke@informatik.uni-wuerzburg.de",
     url="https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git",
-    entry_points={
-        'console_scripts': [
-            'ocr4all-pixel-classifier=ocr4all_pixel_classifier.scripts.main:main',
-            'page-segmentation=ocr4all_pixel_classifier.scripts.main:main',  # legacy
-        ],
-    },
     install_requires=open("requirements.in").read().split(),
     extras_require={
         'tf_cpu': ['tensorflow>=2.0.0,<2.1.0'],
