@@ -56,7 +56,7 @@ def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_
         segments_text = do_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
                                   split_size_vertical,
                                   color_mapping["text"])
-        segments_text = scale_all(segments_image, 1.0 / absolute_resize_factor)
+        segments_text = scale_all(segments_text, 1.0 / absolute_resize_factor)
 
     return segments_text, segments_image
 
