@@ -7,5 +7,5 @@ opencv-python-headless
 dataclasses
 efficientnet
 lxml
-ocr4all-pylib>=0.1.1
+ocr4all-pylib>=0.2.0
 tensorflow>=2.0.0
