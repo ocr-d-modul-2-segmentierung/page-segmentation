@@ -4,6 +4,8 @@ from typing import Optional
 import numpy as np
 import os
 
+from ocr4all.colors import ColorMap
+
 from ocr4all_pixel_classifier.lib.dataset import SingleData
 
 
@@ -39,9 +41,8 @@ def output_data(output_dir, pred, data: SingleData, color_map):
     imsave(os.path.join(output_dir, "inverted", filename), masks.inverted_overlay)
 
 
-def generate_output_masks(data, pred, color_map) -> Masks:
-    from ocr4all_pixel_classifier.lib.dataset import label_to_colors
-    color_mask = label_to_colors(pred, colormap=color_map)
+def generate_output_masks(data: SingleData, pred: np.ndarray, color_map: ColorMap) -> Masks:
+    color_mask = color_map.to_rgb_array(pred)
     foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
     inv_binary = data.binary
     inv_binary = np.stack([inv_binary] * 3, axis=-1)

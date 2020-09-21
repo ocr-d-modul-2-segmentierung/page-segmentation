@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from ocr4all_pixel_classifier.lib.xycut import do_xy_cut, RectSegment, CVContour
+from ocr4all.colors import ColorMap
 
 ColorMapping = Dict[str, np.ndarray]
 
@@ -21,7 +22,7 @@ DEFAULT_COLOR_MAPPING = {
 
 
 def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_height: int,
-                  color_mapping: ColorMapping, only_images=False) \
+                  color_map: ColorMap, only_images=False) \
         -> Tuple[List[RectSegment], List[RectSegment]]:
     # Scale image to specific height for more generic usage of threshold values
     scale_percent = resize_height / image.shape[0]
@@ -44,18 +45,16 @@ def find_segments(orig_height: int, image: np.ndarray, char_height: int, resize_
         return [seg.scale(factor) for seg in segments]
 
     # Calculate x-y-cut and get its segments
-    segments_image = do_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
-                               split_size_vertical,
-                               color_mapping["image"])
+    segments_image = do_xy_cut(color_map.filter_label(image, "image"), px_threshold_line, px_threshold_column,
+                               split_size_horizontal, split_size_vertical)
 
     segments_image = scale_all(segments_image, 1.0 / absolute_resize_factor)
 
     if only_images:
         segments_text = []
     else:
-        segments_text = do_xy_cut(image, px_threshold_line, px_threshold_column, split_size_horizontal,
-                                  split_size_vertical,
-                                  color_mapping["text"])
+        segments_text = do_xy_cut(color_map.filter_label(image, "text"), px_threshold_line, px_threshold_column,
+                                  split_size_horizontal, split_size_vertical)
         segments_text = scale_all(segments_text, 1.0 / absolute_resize_factor)
 
     return segments_text, segments_image
@@ -68,11 +67,8 @@ def dilate(bin_image: np.ndarray):
     return im
 
 
-def get_text_contours(image, char_height, color_match):
-    if type(color_match) is dict:
-        color = np.array(color_match["text"])
-    else:
-        color = np.array(color_match)
+def get_text_contours(image, char_height: int, color_map: ColorMap):
+    color = np.array(color_map.color_for_label("text"))
 
     # Extract pixels with the given color from inverted image
     # Foreground pixels are white

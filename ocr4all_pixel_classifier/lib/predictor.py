@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import NamedTuple, Generator, List, Callable, Optional
 
 import numpy as np
+from ocr4all.colors import ColorMap
 
 from ocr4all_pixel_classifier.lib.dataset import Dataset, SingleData
 from ocr4all_pixel_classifier.lib.network import Network, tf_backend_allow_growth
@@ -20,7 +21,7 @@ class PredictSettings:
     network: str = None
     output: str = None
     high_res_output: bool = False
-    color_map: dict = None  # Only needed for generating colored images
+    color_map: Optional[ColorMap] = None  # Only needed for generating colored images
     n_classes: int = -1
     post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
     gpu_allow_growth: bool = False

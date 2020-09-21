@@ -112,7 +112,7 @@ class PageXMLTypes(enum.Enum):
         )
 
     @classmethod
-    def image_map(cls, mask_type: MaskType):
+    def color_map(cls, mask_type: MaskType):
         types = {
             MaskType.ALLTYPES: PageXMLTypes,
             MaskType.TEXT_GRAPHICS: [PageXMLTypes.PARAGRAPH, PageXMLTypes.IMAGE],

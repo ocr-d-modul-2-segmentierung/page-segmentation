@@ -10,7 +10,7 @@ import numpy as np
 import tqdm
 from skimage.transform import resize, rescale
 
-from ocr4all.image_map import ImageMap
+from ocr4all.colors import ColorMap
 from ocr4all.files import imread, random_indices, chunks
 
 
@@ -32,7 +32,7 @@ class SingleData:
 @dataclass
 class Dataset:
     data: List[SingleData]
-    color_map: ImageMap
+    color_map: ColorMap
 
     def __len__(self):
         return len(self.data)
@@ -177,7 +177,7 @@ def prepare_images(image: np.ndarray, binary: np.ndarray, target_line_height: in
 
 
 class DatasetLoader:
-    def __init__(self, target_line_height, color_map:ImageMap, prediction=False, max_width=None):
+    def __init__(self, target_line_height, color_map: ColorMap, prediction=False, max_width=None):
         self.target_line_height = target_line_height
         self.prediction = prediction
         self.color_map = color_map
@@ -272,7 +272,7 @@ class DatasetLoader:
 
 
 if __name__ == "__main__":
-    loader = DatasetLoader(4, color_map=ImageMap({}))
+    loader = DatasetLoader(4, color_map=ColorMap({}))
     loader.load_test()
 
 
