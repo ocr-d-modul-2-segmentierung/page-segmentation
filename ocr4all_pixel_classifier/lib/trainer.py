@@ -137,10 +137,10 @@ class Trainer:
                 return np.sum([np.sum(d.mask == label) for d in settings.train_data.data]) \
                        / np.sum([d.mask.shape[0] * d.mask.shape[1] for d in settings.train_data.data])
 
-            logging.info("Computing label percentage for {} files.".format(len(settings.train_data.data)))
+            logging.info(f"Computing label percentage for {len(settings.train_data.data)} files.")
             label_percentage = [compute_label_percentage(l) for l in range(settings.n_classes)]
-            logging.info("Label percentage: {}".format(list(zip(range(settings.n_classes), label_percentage))))
-            logging.info("Baseline: {}".format(max(label_percentage)))
+            logging.info(f"Label percentage: {list(zip(range(settings.n_classes), label_percentage))}")
+            logging.info(f"Baseline: {max(label_percentage)}")
 
     def train(self, callback: Optional[TrainProgressCallback] = None) -> None:
         if callback:

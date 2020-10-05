@@ -92,7 +92,7 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
     if not line_height_px:
         norm_dir = os.path.join(root_dir, normalizations_dir)
         if not os.path.exists(norm_dir):
-            raise Exception("Norm dir does not exist at '{}'".format(norm_dir))
+            raise Exception(f"Norm dir does not exist at '{norm_dir}'")
 
         line_height_px = listdir(norm_dir)
         if verify_filenames:
@@ -204,7 +204,7 @@ class DatasetLoader:
                 all_files += [SingleData(**d) for t in ["train", "test", "eval"] for d in json.load(open(f, 'r'))[t]]
             else:
                 all_files += [SingleData(**d) for d in json.load(open(f, 'r'))[type]]
-        print("Loading {} data of type {}".format(len(all_files), type))
+        print(f"Loading {len(all_files)} data of type {type}")
         return self.load_data(all_files)
 
     # noinspection PyUnusedLocal,PyPep8Naming
@@ -263,10 +263,10 @@ def single_split(n_train, n_test, n_eval, data_files):
     elif n_test < 0:
         n_test = len(data_files) - n_eval - n_train
     if len(data_files) < n_eval + n_train + n_test:
-        raise Exception("The dataset consists of {} files, but eval + train + test = {} + {} + {} = {}".format(
-            len(data_files), n_eval, n_train, n_test,
-            n_eval + n_train + n_test)
-        )
+        raise Exception(
+            f"The dataset consists of {len(data_files)} files, "
+            f"but eval + train + test = {n_eval} + {n_train} + {n_test} = {n_eval + n_train + n_test}"
+            )
     indices = random_indices(data_files)
 
     eval = [data_files[d] for d in indices[:n_eval]]
