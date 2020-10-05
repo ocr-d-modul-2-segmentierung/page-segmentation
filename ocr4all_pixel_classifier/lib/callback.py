@@ -1,6 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import os
+
+from ocr4all.colors import ColorMap
+
 from ocr4all_pixel_classifier.lib.util import image_to_batch
 
 
@@ -70,7 +73,7 @@ class TensorboardWriter:
 
 class ModelDiagnoser(tf.keras.callbacks.Callback):
 
-    def __init__(self, data_generator, batch_size, num_samples, output_dir, color_map):
+    def __init__(self, data_generator, batch_size, num_samples, output_dir, color_map: ColorMap):
         super().__init__()
         self.data_generator = data_generator
         self.batch_size = batch_size
@@ -79,7 +82,6 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
         self.color_map = color_map
 
     def on_epoch_end(self, epoch, logs=None):
-        from ocr4all_pixel_classifier.lib.dataset import label_to_colors
         total_steps = int(np.ceil(np.divide(self.num_samples, self.batch_size)))
         sample_index = 0
         while sample_index < total_steps:
@@ -88,7 +90,7 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
             x, y = generator_output
             logit = self.model.predict_on_batch(x)[0, :, :, :]
             pred = np.argmax(logit, -1)
-            color_mask = label_to_colors(pred, colormap=self.color_map)
+            color_mask = self.color_map.to_rgb_array(pred)
             inv_binary = np.stack([x.get('input_2')[0, :, :, 0]] * 3, axis=-1)
             inverted_overlay_mask = color_mask.copy()
             inverted_overlay_mask[inv_binary == 0] = 0

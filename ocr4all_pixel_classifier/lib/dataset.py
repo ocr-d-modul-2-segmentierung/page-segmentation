@@ -4,7 +4,7 @@ import multiprocessing
 import os
 from dataclasses import dataclass
 from random import shuffle
-from typing import List, Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any, Callable
 
 import numpy as np
 import tqdm
@@ -111,32 +111,6 @@ def list_dataset(root_dir, line_height_px=None, binary_dir_="binary_images", ima
             for b_p, i_p, m_p, l_h in zip(bin, img, m, line_height_px)]
 
 
-#DEPRECATED
-def color_to_label(mask, colormap: dict):
-    out = np.zeros(mask.shape[0:2], dtype=np.int32)
-
-    if mask.ndim == 2:
-        return mask.astype(np.int32) / 255
-    if mask.shape[2] == 2:
-        return mask[:, :, 0].astype(np.int32) / 255
-    mask = mask.astype(np.uint32)
-    mask = 256 * 256 * mask[:, :, 0] + 256 * mask[:, :, 1] + mask[:, :, 2]
-    for color, label in colormap.items():
-        color_1d = 256 * 256 * color[0] + 256 * color[1] + color[2]
-        out += (mask == color_1d) * label[0]
-    return out
-
-
-def label_to_colors(mask, colormap: dict):
-    out = np.zeros(mask.shape + (3,), dtype=np.int64)
-    for color, label in colormap.items():
-        trues = np.stack([(mask == label[0])] * 3, axis=-1)
-        out += np.tile(color, mask.shape + (1,)) * trues
-
-    out = np.ndarray.astype(out, dtype=np.uint8)
-    return out
-
-
 def scale_binary(binary: np.ndarray, scale: float):
     return rescale(binary, scale,
                    order=0,
@@ -184,34 +158,28 @@ class DatasetLoader:
         self.max_width = max_width
 
     def load_images(self, dataset_file_entry: SingleData) -> SingleData:
-        def load_if_needed(data: SingleData, attr: str, as_gray: bool) -> np.ndarray:
+        def load_cached(data: SingleData, attr: str, loader: Callable[[str], np.ndarray]) -> np.ndarray:
             file = getattr(data, attr)
             if file is not None:
                 return file
             else:
-                return imread(getattr(data, attr + '_path'), as_gray=as_gray)
+                return loader(getattr(data, attr + '_path'))
 
         # inverted grayscale (black background)
-        img = load_if_needed(dataset_file_entry, 'image', as_gray=True)
+        img = load_cached(dataset_file_entry, 'image', lambda path: imread(path, as_gray=True))
 
         original_shape = img.shape
-        bin = load_if_needed(dataset_file_entry, 'binary', as_gray=True)
+        bin = load_cached(dataset_file_entry, 'image', lambda path: imread(path, as_gray=False))
 
-        img, bin, orig_bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px, self.max_width, keep_orig_bin=True)
+        img, bin, orig_bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px,
+                                            self.max_width, keep_orig_bin=True)
 
         scaled_shape = img.shape
 
         # color
         if not self.prediction:
-            mask = load_if_needed(dataset_file_entry, 'mask', as_gray=False)
+            mask = load_cached(dataset_file_entry, 'mask', self.color_map.imread_labels)
             mask = resize(mask, scaled_shape, order=0, anti_aliasing=False, preserve_range=True)
-
-            if mask.ndim == 3:
-                mask = self.color_map.to_labels(mask)
-            elif mask.ndim == 2:
-                u_values = np.unique(mask)
-                for ind, x in enumerate(u_values):
-                    mask[mask == x] = ind
             assert (mask.shape == img.shape)
             dataset_file_entry.mask = mask.astype(np.uint8)
 
