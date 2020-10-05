@@ -1,30 +1,10 @@
 import os
-from dataclasses import dataclass
-from typing import NamedTuple, Generator, List, Callable, Optional
+from typing import Generator
 
-import numpy as np
-from ocr4all.colors import ColorMap
-
+from ocr4all_pixel_classifier.lib.predictor_data import Prediction, PredictSettings
 from ocr4all_pixel_classifier.lib.dataset import Dataset, SingleData
 from ocr4all_pixel_classifier.lib.network import Network, tf_backend_allow_growth
 from ocr4all_pixel_classifier.lib.output import Masks, scale_to_original_shape, generate_output_masks
-
-
-class Prediction(NamedTuple):
-    labels: np.ndarray
-    probabilities: np.ndarray
-    data: SingleData
-
-
-@dataclass
-class PredictSettings:
-    network: str = None
-    output: str = None
-    high_res_output: bool = False
-    color_map: Optional[ColorMap] = None  # Only needed for generating colored images
-    n_classes: int = -1
-    post_process: Optional[List[Callable[[np.ndarray, SingleData], np.ndarray]]] = None
-    gpu_allow_growth: bool = False
 
 
 class Predictor:
