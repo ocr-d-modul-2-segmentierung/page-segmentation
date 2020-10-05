@@ -94,15 +94,14 @@ class ModelDiagnoser(tf.keras.callbacks.Callback):
             inv_binary = np.stack([x.get('input_2')[0, :, :, 0]] * 3, axis=-1)
             inverted_overlay_mask = color_mask.copy()
             inverted_overlay_mask[inv_binary == 0] = 0
-            self.tensorboard_writer.save_image("{}/Input"
-                                                   .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(x.get('input_1')[0, :, :, :])))
-            self.tensorboard_writer.save_image("{}/GT"
-                                                   .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(label_to_colors(y.get('logits')[0, :, :, 0],
-                                                                                                 self.color_map))))
-            self.tensorboard_writer.save_image("{}/Prediction"
-                                                   .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(color_mask)))
-            self.tensorboard_writer.save_image("{}/Overlay"
-                                                   .format(sample_index, epoch), tf.convert_to_tensor(image_to_batch(inverted_overlay_mask)))
+            self.tensorboard_writer.save_image(f"{sample_index}-{epoch}/Input",
+                                               tf.convert_to_tensor(image_to_batch(x.get('input_1')[0, :, :, :])))
+            self.tensorboard_writer.save_image(f"{sample_index}-{epoch}/GT",
+                                               tf.convert_to_tensor(image_to_batch(self.color_map.to_rgb_array(y.get('logits')[0, :, :, 0]))))
+            self.tensorboard_writer.save_image(f"{sample_index}-{epoch}/Prediction",
+                                               tf.convert_to_tensor(image_to_batch(color_mask)))
+            self.tensorboard_writer.save_image(f"{sample_index}-{epoch}/Overlay",
+                                               tf.convert_to_tensor(image_to_batch(inverted_overlay_mask)))
 
             sample_index += 1
 

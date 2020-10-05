@@ -61,7 +61,7 @@ class Network:
             from subprocess import check_call
             import sys
             from pathlib import Path
-            logger.info("Upgrading model to {}".format(model))
+            logger.info(f"Upgrading model to {model}")
             check_call([sys.executable, os.path.join(Path(__file__).parent.parent, 'scripts', 'migrate_model.py'),
                         '--meta_path', model[:-3] + '.meta', '--output_path', model,
                         '--n_classes', str(n_classes), '--l_rate', str(l_rate)

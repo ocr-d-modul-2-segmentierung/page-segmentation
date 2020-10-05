@@ -57,7 +57,7 @@ def fgoverlap_per_class(pred: np.ndarray, mask: np.ndarray, bin: np.ndarray, n_c
 
 def compute_char_height(file_name: str, inverse: bool):
     if not os.path.exists(file_name):
-        raise Exception("File does not exist at {}".format(file_name))
+        raise Exception(f"File does not exist at {file_name}")
 
     img = cv2.imread(file_name, cv2.IMREAD_GRAYSCALE)
     ret, img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
