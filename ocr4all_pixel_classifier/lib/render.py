@@ -33,7 +33,8 @@ def render_regions(output_dir: str,
 
 def render_xycut(orig_shape: Tuple[int, int], label_colors: ColorMap,
                  segments_text: List[RectSegment], segments_image: List[RectSegment]):
-    mask_image = render_rect_segments(orig_shape, [
+    size=tuple(reversed(orig_shape))
+    mask_image = render_rect_segments(size, [
         (label_colors.color_for_label('text'), segments_text),
         (label_colors.color_for_label('image'), segments_image),
     ])

@@ -64,6 +64,9 @@ class Predictor:
     def predict_masks(self, data: SingleData) -> Masks:
         logit, prob, pred = self.network.predict_single_data(data)
 
+        if self.settings.high_res_output:
+            data, pred = scale_to_original_shape(data, pred)
+
         if self.settings.post_process:
             for processor in self.settings.post_process:
                 pred = processor(pred, data)
