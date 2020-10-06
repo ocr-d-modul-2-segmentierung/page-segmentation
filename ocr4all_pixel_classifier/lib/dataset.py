@@ -11,7 +11,7 @@ import tqdm
 from skimage.transform import resize, rescale
 
 from ocr4all.colors import ColorMap
-from ocr4all.files import imread, random_indices, chunks
+from ocr4all.files import imread, random_indices, chunks, imread_bin
 
 
 @dataclass
@@ -169,7 +169,7 @@ class DatasetLoader:
         img = load_cached(dataset_file_entry, 'image', lambda path: imread(path, as_gray=True))
 
         original_shape = img.shape
-        bin = load_cached(dataset_file_entry, 'image', lambda path: imread(path, as_gray=False))
+        bin = load_cached(dataset_file_entry, 'image', imread_bin)
 
         img, bin, orig_bin = prepare_images(img, bin, self.target_line_height, dataset_file_entry.line_height_px,
                                             self.max_width, keep_orig_bin=True)
