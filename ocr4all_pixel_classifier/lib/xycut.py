@@ -117,17 +117,11 @@ def _get_gaps(indication: np.ndarray) -> List[Gap]:
     return [Gap(start=x[0], length=len(x)) for x in consecutive if len(x) > 0]
 
 
-def _relative_seg(shape, start, end, axis, pos):
-    if axis == 0:
-        return RectSegment(x_start=pos[1] + start,
-                           x_end=pos[1] + end,
-                           y_start=pos[0],
-                           y_end=pos[0] + shape[1])
-    else:
-        return RectSegment(x_start=pos[1],
-                           x_end=pos[1] + shape[0],
-                           y_start=pos[0] + start,
-                           y_end=pos[0] + end)
+def _relative_seg(shape, start, end, pos):
+    return RectSegment(x_start=pos[1] + start,
+                       x_end=pos[1] + end,
+                       y_start=pos[0],
+                       y_end=pos[0] + shape[1])
 
 
 def recursive_cut(image: np.ndarray,
@@ -137,17 +131,16 @@ def recursive_cut(image: np.ndarray,
                   position: Tuple[int, int] = (0, 0),
                   end_recurse=False
                   ) -> List[RectSegment]:
-
     threshold1 = threshold[axis]
     white_lines = np.count_nonzero(image, axis=axis) >= threshold1
     gaps = _get_gaps(white_lines)
     if len(gaps) == 0:
-        return [_relative_seg(image.shape, 0, image.shape[axis], axis, position)]
+        return [_relative_seg(image.shape, 0, image.shape[axis], position)]
 
     segments_for_axis = _get_segments(gaps, image.shape[axis], threshold[axis], split_size[axis])
 
     if end_recurse:
-        return [_relative_seg(image.shape, s.start, s.end, axis, position) for s in segments_for_axis]
+        return [_relative_seg(image.shape, s.start, s.end, position) for s in segments_for_axis]
 
     recursive_segments = []
 
@@ -159,6 +152,8 @@ def recursive_cut(image: np.ndarray,
             else:
                 slice = image[:, seg.start:seg.end]
                 pos = (position[0] + seg.start, position[1])
+
+            if any(l == 0 for l in slice.shape): return recursive_segments
 
             recursive_segments += recursive_cut(slice, threshold, split_size, 1 - axis, pos,
                                                 len(segments_for_axis) == 1)
@@ -176,5 +171,3 @@ def _get_segments(gaps: List[Gap], length: int, px_threshold, split_size) -> Lis
             segments.append(Segment1D(gap.start + gap.length, nextgap.start))
 
     return segments
-
-
