@@ -44,12 +44,11 @@ def output_data(output_dir, pred, data: SingleData, color_map):
 def generate_output_masks(data: SingleData, pred: np.ndarray, color_map: ColorMap) -> Masks:
     color_mask = color_map.to_rgb_array(pred)
     foreground = np.stack([(1 - data.binary)] * 3, axis=-1)
-    inv_binary = data.binary
-    inv_binary = np.stack([inv_binary] * 3, axis=-1)
+    binary3d = np.stack([data.binary] * 3, axis=-1)
     overlay_mask = color_mask.copy()
     overlay_mask[foreground == 0] = 0
     inverted_overlay_mask = color_mask.copy()
-    inverted_overlay_mask[inv_binary == 0] = 0
+    inverted_overlay_mask[binary3d == 0] = 0
     fg_color_mask = color_mask.copy()
     fg_color_mask[foreground != 0] = 0
 
