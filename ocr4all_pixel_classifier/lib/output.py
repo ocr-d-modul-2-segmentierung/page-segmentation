@@ -60,13 +60,20 @@ def generate_output_masks(data: SingleData, pred: np.ndarray, color_map: ColorMa
     )
 
 
-def scale_to_original_shape(data, pred):
+def scale_to_original_shape(data: SingleData, pred):
     from ocr4all_pixel_classifier.lib.util import preserving_resize
     resized_image = preserving_resize(data.image, data.original_shape)
     pred = preserving_resize(pred, data.original_shape).astype('int64')
     from dataclasses import replace
+    if data.binary.shape != data.original_shape:
+        if data.orig_binary is not None:
+            resized_binary = data.orig_binary
+        else:
+            resized_binary = preserving_resize(data.binary, data.original_shape).astype('bool')
+    else:
+        resized_binary = data.binary
     data = replace(data,
-                   binary=data.orig_binary,
+                   binary=resized_binary,
                    image=resized_image
                    )
     return data, pred
