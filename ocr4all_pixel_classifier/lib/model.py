@@ -1,5 +1,3 @@
-import enum
-from functools import partial
 from typing import Union, List
 
 import efficientnet.tfkeras as efn
@@ -42,6 +40,7 @@ def crop(input_tensors):
     shape = tf.shape(input=input)
     output = tf.image.crop_to_bounding_box(input, 0, 0, tf.gather(shape, 1) - px, tf.gather(shape, 2) - py)
     return output
+
 
 def model_fcn_skip(input: Tensors, n_classes: int):
     input_image = input[0]
@@ -308,16 +307,17 @@ def res_unet(input: Tensors, n_classes: int):
     return model
 
 
-def res_net_fine_tuning(input: Tensors, n_classes: int):
-    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
-        conv = tf.keras.layers.Conv2D(filters, (3, 3),
-                                      padding="same", kernel_initializer="he_normal",
-                                      strides=strides, name=prefix + "_conv")(prevlayer)
-        if batch_nm:
-            conv = tf.keras.layers.BatchNormalization(name=prefix + "_bn")(conv)
-        conv = tf.keras.layers.Activation('relu', name=prefix + "_activation")(conv)
-        return conv
+def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
+    conv = tf.keras.layers.Conv2D(filters, (3, 3),
+                                  padding="same", kernel_initializer="he_normal",
+                                  strides=strides, name=prefix + "_conv")(prevlayer)
+    if batch_nm:
+        conv = tf.keras.layers.BatchNormalization(name=prefix + "_bn")(conv)
+    conv = tf.keras.layers.Activation('relu', name=prefix + "_activation")(conv)
+    return conv
 
+
+def res_net_fine_tuning(input: Tensors, n_classes: int):
     input_image = input[0]
 
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x), name='lambda_calc_pad')(input_image)
@@ -366,15 +366,6 @@ def res_net_fine_tuning(input: Tensors, n_classes: int):
 
 
 def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1):
-    def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1), batch_nm=False):
-        conv = tf.keras.layers.Conv2D(filters, (3, 3),
-                                      padding="same", kernel_initializer="he_normal",
-                                      strides=strides, name=prefix + "_conv")(prevlayer)
-        if batch_nm:
-            conv = tf.keras.layers.BatchNormalization(name=prefix + "_bn")(conv)
-        conv = tf.keras.layers.Activation('relu', name=prefix + "_activation")(conv)
-        return conv
-
     input_image = input[0]
     padding = tf.keras.layers.Lambda(lambda x: calculate_padding(x))(input_image)
     padded = tf.keras.layers.Lambda(pad)([input_image, padding])
@@ -414,90 +405,3 @@ def eff_net_fine_tuning(input: Tensors, n_classes: int, efnet=efn.EfficientNetB1
 
     model = tf.keras.Model(input, out, name='effb0')
     return model
-
-
-def default_preprocess(x):
-    return x / 255.0
-
-
-class Architecture(enum.Enum):
-    FCN_SKIP = 'fcn_skip'
-    FCN = 'fcn'
-    RES_NET = 'image_res_net'
-    RES_UNET = 'res_unet'
-    MOBILE_NET = 'mobile_net'
-    UNET = 'unet'
-    EFFNETB0 = 'effb0'
-    EFFNETB1 = 'effb1'
-    EFFNETB2 = 'effb2'
-    EFFNETB3 = 'effb3'
-    EFFNETB4 = 'effb4'
-    EFFNETB5 = 'effb5'
-    EFFNETB6 = 'effb6'
-    EFFNETB7 = 'effb7'
-
-    def __call__(self, *args, **kwargs):
-        return self.model()
-
-    def model(self):
-        return {
-            Architecture.FCN_SKIP: model_fcn_skip,
-            Architecture.FCN: model_fcn,
-            Architecture.RES_NET: res_net_fine_tuning,
-            Architecture.RES_UNET: res_unet,
-            Architecture.MOBILE_NET: unet_with_mobile_net_encoder,
-            Architecture.UNET: unet,
-            Architecture.EFFNETB0: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB0),
-            Architecture.EFFNETB1: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB1),
-            Architecture.EFFNETB2: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB2),
-            Architecture.EFFNETB3: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB3),
-            Architecture.EFFNETB4: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB4),
-            Architecture.EFFNETB5: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB5),
-            Architecture.EFFNETB6: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB6),
-            Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
-        }[self]
-
-    def preprocess(self):
-        return {
-            Architecture.FCN_SKIP: (default_preprocess, False),
-            Architecture.FCN: (default_preprocess, False),
-            Architecture.RES_NET: (tf.keras.applications.resnet50.preprocess_input, True),
-            Architecture.RES_UNET: (default_preprocess, False),
-            Architecture.MOBILE_NET: (tf.keras.applications.mobilenet_v2.preprocess_input, True),
-            Architecture.UNET: (default_preprocess, False),
-            Architecture.EFFNETB0: (efn.preprocess_input, True),
-            Architecture.EFFNETB1: (efn.preprocess_input, True),
-            Architecture.EFFNETB2: (efn.preprocess_input, True),
-            Architecture.EFFNETB3: (efn.preprocess_input, True),
-            Architecture.EFFNETB4: (efn.preprocess_input, True),
-            Architecture.EFFNETB5: (efn.preprocess_input, True),
-            Architecture.EFFNETB6: (efn.preprocess_input, True),
-            Architecture.EFFNETB7: (efn.preprocess_input, True),
-        }[self]
-
-
-class Optimizers(enum.Enum):
-    ADAM = 'adam'
-    ADAMAX = 'adamax'
-    ADADELTA = 'adadelta'
-    ADAGRAD = 'adagrad'
-    RMSPROP = 'rmsprop'
-    SGD = 'sgd'
-    NADAM = 'nadam'
-
-    def __call__(self, *args, **kwargs):
-        return {
-            Optimizers.ADAM: tf.keras.optimizers.Adam,
-            Optimizers.ADAMAX: tf.keras.optimizers.Adamax,
-            Optimizers.ADADELTA: tf.keras.optimizers.Adadelta,
-            Optimizers.ADAGRAD: tf.keras.optimizers.Adagrad,
-            Optimizers.RMSPROP: tf.keras.optimizers.RMSprop,
-            Optimizers.SGD: tf.keras.optimizers.SGD,
-            Optimizers.NADAM: tf.keras.optimizers.Nadam,
-        }[self]
-
-
-if __name__ == '__main__':
-    #effnet_base = efn.EfficientNetB1(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
-    #print(effnet_base.summary())
-    pass

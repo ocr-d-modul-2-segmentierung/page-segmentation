@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback, TrainProgressCallbackWrapper
-from ocr4all_pixel_classifier.lib.model import Optimizers, Architecture
+from .architecture import Architecture, Optimizers
 from ocr4all_pixel_classifier.lib.trainer import TrainSettings, AugmentationSettings
 from ocr4all_pixel_classifier.lib.util import image_to_batch, gray_to_rgb
 from .dataset import Dataset, SingleData

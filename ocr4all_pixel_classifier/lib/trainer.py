@@ -2,7 +2,7 @@ from ocr4all_pixel_classifier.lib.dataset import Dataset
 from ocr4all_pixel_classifier.lib.callback import TrainProgressCallback
 from typing import NamedTuple, Optional, List
 from ocr4all_pixel_classifier.lib.metrics import Loss, Monitor
-from ocr4all_pixel_classifier.lib.model import Architecture, Optimizers
+from ocr4all_pixel_classifier.lib.architecture import Architecture, Optimizers
 import numpy as np
 import logging
 import tensorflow as tf
