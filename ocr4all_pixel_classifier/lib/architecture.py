@@ -17,6 +17,7 @@ class Architecture(enum.Enum):
     EFFNETB5 = 'effb5'
     EFFNETB6 = 'effb6'
     EFFNETB7 = 'effb7'
+    PROB_UNET = 'prob_unet'
 
     def __call__(self, *args, **kwargs):
         return self.model()
@@ -40,6 +41,7 @@ class Architecture(enum.Enum):
             Architecture.EFFNETB5: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB5),
             Architecture.EFFNETB6: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB6),
             Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
+            Architecture.PROB_UNET: prob_unet,
         }[self]
 
     def preprocess(self):
@@ -61,6 +63,7 @@ class Architecture(enum.Enum):
             Architecture.EFFNETB5: (efn.preprocess_input, True),
             Architecture.EFFNETB6: (efn.preprocess_input, True),
             Architecture.EFFNETB7: (efn.preprocess_input, True),
+            Architecture.PROB_UNET: (default_preprocess, False),
         }[self]
 
 

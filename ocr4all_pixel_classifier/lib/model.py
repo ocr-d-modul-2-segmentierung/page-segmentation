@@ -4,6 +4,8 @@ import efficientnet.tfkeras as efn
 import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
 
+from ocr4all_bayes.network import ProbUNet
+
 Tensors = Union[Tensor, List[Tensor]]
 
 
@@ -90,6 +92,12 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     model_k = tf.keras.models.Model(inputs=input, outputs=logits, name='fcn_skip')
 
     return model_k
+
+def model_fcn_bayes(input: Tensors, n_classes: int):
+    input_image = input[0]
+    prob_unet = ProbUNet(latent_dim=6, num_classes=num_classes)(input_image)
+    model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
+    return model
 
 
 def unet_with_mobile_net_encoder(input: Tensors, n_classes: int):
