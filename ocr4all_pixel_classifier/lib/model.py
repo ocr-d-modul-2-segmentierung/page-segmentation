@@ -93,9 +93,8 @@ def model_fcn_skip(input: Tensors, n_classes: int):
 
     return model_k
 
-def model_fcn_bayes(input: Tensors, n_classes: int):
-    input_image = input[0]
-    prob_unet = ProbUNet(latent_dim=6, num_classes=num_classes)(input_image)
+def fcn_bayes(input: Tensors, n_classes: int):
+    prob_unet = ProbUNet(latent_dim=6, num_classes=n_classes, name='logits')(input)
     model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
     return model
 

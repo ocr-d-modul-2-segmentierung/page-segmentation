@@ -23,25 +23,24 @@ class Architecture(enum.Enum):
         return self.model()
 
     def model(self):
-        from ocr4all_pixel_classifier.lib.model import model_fcn_skip, model_fcn, res_net_fine_tuning, res_unet, \
-            unet_with_mobile_net_encoder, unet, eff_net_fine_tuning
+        import ocr4all_pixel_classifier.lib.model as m
         from efficientnet import tfkeras as efn
         return {
-            Architecture.FCN_SKIP: model_fcn_skip,
-            Architecture.FCN: model_fcn,
-            Architecture.RES_NET: res_net_fine_tuning,
-            Architecture.RES_UNET: res_unet,
-            Architecture.MOBILE_NET: unet_with_mobile_net_encoder,
-            Architecture.UNET: unet,
-            Architecture.EFFNETB0: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB0),
-            Architecture.EFFNETB1: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB1),
-            Architecture.EFFNETB2: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB2),
-            Architecture.EFFNETB3: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB3),
-            Architecture.EFFNETB4: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB4),
-            Architecture.EFFNETB5: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB5),
-            Architecture.EFFNETB6: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB6),
-            Architecture.EFFNETB7: partial(eff_net_fine_tuning, efnet=efn.EfficientNetB7),
-            Architecture.PROB_UNET: prob_unet,
+            Architecture.FCN_SKIP: m.model_fcn_skip,
+            Architecture.FCN: m.model_fcn,
+            Architecture.RES_NET: m.res_net_fine_tuning,
+            Architecture.RES_UNET: m.res_unet,
+            Architecture.MOBILE_NET: m.unet_with_mobile_net_encoder,
+            Architecture.UNET: m.unet,
+            Architecture.EFFNETB0: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB0),
+            Architecture.EFFNETB1: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB1),
+            Architecture.EFFNETB2: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB2),
+            Architecture.EFFNETB3: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB3),
+            Architecture.EFFNETB4: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB4),
+            Architecture.EFFNETB5: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB5),
+            Architecture.EFFNETB6: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB6),
+            Architecture.EFFNETB7: partial(m.eff_net_fine_tuning, efnet=efn.EfficientNetB7),
+            Architecture.PROB_UNET: m.fcn_bayes,
         }[self]
 
     def preprocess(self):

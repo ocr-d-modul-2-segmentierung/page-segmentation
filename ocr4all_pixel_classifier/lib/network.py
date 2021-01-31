@@ -55,6 +55,7 @@ class Network:
         else:
             self.input = tf.keras.layers.Input((None, None, input_image_dimension))
         self.binary = tf.keras.layers.Input((None, None, 1))
+        self.segmentation = tf.keras.layers.Input((None, None, 1))
 
         model = model if not model or '.' in model else model + '.h5'
         if model and not os.path.exists(model) and model.endswith('.h5'):
@@ -86,7 +87,8 @@ class Network:
             if model and continue_training:
                 raise e
 
-            self.model = model_constructor.model()([self.input, self.binary], n_classes)
+            self.model = model_constructor.model()([self.input, self.binary,
+                self.segmentation], n_classes)
             optimizer = optimizer()
             _optimizer = None
             if optimizer_norm_clipping and optimizer_clipping:
@@ -157,12 +159,17 @@ class Network:
                     m_n = next(m_x)
 
                     yield ({'input_1': preprocess(i_n),
-                            'input_2': b_n}), \
+                            'input_2': b_n,
+                            'input_3': m_n
+                            }), \
                           {'logits': m_n}
                 else:
+                    m_batch = image_to_batch(m)
                     yield ({'input_1': image_to_batch(preprocess(i)),
-                           'input_2': image_to_batch(b)}), \
-                          {'logits': image_to_batch(m)}
+                           'input_2': image_to_batch(b),
+                           'input_3': m_batch
+                           }), \
+                          {'logits': m_batch}
 
     def train_dataset(self, setting: TrainSettings = None,
                       callback: Optional[TrainProgressCallback] = None):
