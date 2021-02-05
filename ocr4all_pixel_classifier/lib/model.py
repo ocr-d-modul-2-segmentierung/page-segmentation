@@ -4,7 +4,6 @@ import efficientnet.tfkeras as efn
 import tensorflow as tf
 from tensorflow.python.framework.ops import Tensor
 
-from ocr4all_bayes.network import ProbUNet
 
 Tensors = Union[Tensor, List[Tensor]]
 
@@ -94,8 +93,18 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     return model_k
 
 def fcn_bayes(input: Tensors, n_classes: int):
-    prob_unet = ProbUNet(latent_dim=6, num_classes=n_classes, name='logits')(input)
-    model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
+    #from ocr4all_bayes.network import ProbUNet
+    #prob_unet = ProbUNet(latent_dim=6, num_classes=n_classes, name='logits')(input)
+    #model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
+
+    from ocr4all_bayes.network_funcapi import prob_unet
+
+    sample, elbo_loss, rec_loss_mean, kl = prob_unet(latent_dim=6, num_classes=n_classes)(input)
+
+    model = tf.keras.models.Model(inputs=input, outputs=sample, name='prob_unet')
+    model.add_loss(elbo_loss)
+    model.add_metric(elbo_loss, name="elbo")
+    model.add_metric(rec_loss_mean, name="rec_loss_mean")
     return model
 
 
