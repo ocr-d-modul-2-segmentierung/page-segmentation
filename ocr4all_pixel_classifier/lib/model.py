@@ -99,12 +99,9 @@ def fcn_bayes(input: Tensors, n_classes: int):
 
     from ocr4all_bayes.network_funcapi import prob_unet
 
-    sample, elbo_loss, rec_loss_mean, kl = prob_unet(latent_dim=6, num_classes=n_classes)(input)
+    sample = prob_unet(latent_dim=6, num_classes=n_classes)(input)
 
     model = tf.keras.models.Model(inputs=input, outputs=sample, name='prob_unet')
-    model.add_loss(elbo_loss)
-    model.add_metric(elbo_loss, name="elbo")
-    model.add_metric(rec_loss_mean, name="rec_loss_mean")
     return model
 
 
