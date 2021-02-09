@@ -19,7 +19,7 @@ class Network:
     def __init__(self,
                  type: str,
                  n_classes: int = -1,
-                 model_constructor: Architecture = Architecture.FCN_SKIP,
+                 model_constructor: Architecture = Architecture.PROB_UNET,
                  l_rate: float = 1e-4,
                  has_binary: bool = False,
                  foreground_masks: bool = False,
@@ -72,6 +72,7 @@ class Network:
             jacard_coef, dice_coef_loss, jacard_coef_loss, categorical_hinge, dice_and_categorical\
             , categorical_focal_loss
         from ocr4all_pixel_classifier.lib.layers import GraytoRgb
+        from ocr4all_bayes.network import custom_objects as bayes_custom_objects
 
         try:
             self.model = tf.keras.models.load_model(model, custom_objects={'loss': loss, 'accuracy': accuracy,
@@ -82,13 +83,19 @@ class Network:
                                                                            'dice_and_categorical': dice_and_categorical,
                                                                            'categorical_hinge': categorical_hinge,
                                                                            'categorical_focal_loss':categorical_focal_loss,
-                                                                           'GraytoRgb': GraytoRgb})
+                                                                           'GraytoRgb': GraytoRgb,
+                                                                            **bayes_custom_objects})
         except Exception as e:
             if model and continue_training:
                 raise e
 
             self.model = model_constructor.model()([self.input, self.binary,
                 self.segmentation], n_classes)
+            #DEBUG
+            #from IPython.terminal.embed import InteractiveShellEmbed
+            #ipshell = InteractiveShellEmbed()
+            #ipshell()
+            #ENDDEBUG
             optimizer = optimizer()
             _optimizer = None
             if optimizer_norm_clipping and optimizer_clipping:
@@ -106,7 +113,13 @@ class Network:
                 self.model.compile(optimizer=_optimizer, loss=loss_func(), metrics=[accuracy, jacard_coef, dice_coef])
 
             if model:
-                self.model.load_weights(model)
+                try:
+                    self.model.load_weights(model)
+                except ValueError as e:
+                    z = np.zeros([1, 10, 10, self.input.shape[-1]])
+                    _ = self.model.layers[-1]([z,z,z], training=True)
+                    self.model.load_weights(model)
+
 
     def _create_data_augmentation(self, data_augmentation_settings: AugmentationSettings):
         from ocr4all_pixel_classifier.lib.data_generator import ImageDataGeneratorCustom
@@ -261,7 +274,7 @@ class Network:
             image = gray_to_rgb(image)
         preprocessed_image = preprocess(image)
         logit = self.model.predict_on_batch([image_to_batch(preprocessed_image),
-                                   image_to_batch(data.binary)])[0, :, :, :]
+                                   image_to_batch(data.binary), np.array([0,])])[0, :, :, :]
         prob = softmax(logit, -1)
         pred = np.argmax(logit, -1)
         return logit, prob, pred

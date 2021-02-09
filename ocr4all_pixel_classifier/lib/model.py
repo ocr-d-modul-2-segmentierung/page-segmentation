@@ -93,15 +93,16 @@ def model_fcn_skip(input: Tensors, n_classes: int):
     return model_k
 
 def fcn_bayes(input: Tensors, n_classes: int):
-    #from ocr4all_bayes.network import ProbUNet
-    #prob_unet = ProbUNet(latent_dim=6, num_classes=n_classes, name='logits')(input)
-    #model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
+    from ocr4all_bayes.network import ProbUNet
+    prob_unet = ProbUNet(latent_dim=6, num_classes=n_classes, name='logits')(input)
+    model = tf.keras.models.Model(inputs=input, outputs=prob_unet, name='prob_unet')
 
-    from ocr4all_bayes.network_funcapi import prob_unet
+    #from ocr4all_bayes.network_funcapi import prob_unet
 
-    sample = prob_unet(latent_dim=6, num_classes=n_classes)(input)
+    #sample, loss = prob_unet(latent_dim=6, num_classes=n_classes)(input, training=True)
 
-    model = tf.keras.models.Model(inputs=input, outputs=sample, name='prob_unet')
+    #model = tf.keras.models.Model(inputs=input, outputs=[sample, loss], name='prob_unet')
+    #model.add_loss(loss)
     return model
 
 
