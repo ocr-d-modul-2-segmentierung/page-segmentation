@@ -14,11 +14,7 @@ setup(
     author="Christoph Wick, Alexander Hartelt, Alexander Gehrke",
     author_email="christoph.wick@informatik.uni-wuerzburg.de, alexander.hartelt@informatik.uni-wuerzburg.de, alexander.gehrke@informatik.uni-wuerzburg.de",
     url="https://gitlab2.informatik.uni-wuerzburg.de/chw71yx/page-segmentation.git",
-    install_requires=open("requirements.in").read().split(),
-    extras_require={
-        'tf_cpu': ['tensorflow>=2.0.0,<2.1.0'],
-        'tf_gpu': ['tensorflow-gpu>=2.0.0,<2.1.0'],
-    },
+    install_requires=open("requirements.in").read().split("\n"),
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",

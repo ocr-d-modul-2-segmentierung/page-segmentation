@@ -4,10 +4,11 @@
 
 Python dependencies are specified in `requirements.txt` / `setup.py`.
 
-You must install the package via pip with either `ocr4all_pixel_classifier[tf_cpu]` to
-use CPU version of tensorflow or `ocr4all_pixel_classifier[tf_gpu]` to use GPU (CUDA)
-version of tensorflow. For the latter, your system should be set up with CUDA 9
-and CuDNN 7.
+The package is tested with Tensorflow 2.0 up to 2.5. If you want to use a GPU,
+you'll have to set up your system with the CUDA and CuDNN versions [matching
+your used Tensorflow version](https://www.tensorflow.org/install/source#gpu).
+If using Tensorflow older than 2.1 for some reason, you'll additionaly have to
+replace the `tensorflow` package with `tensorflow-gpu` manually.
 
 ## Usage
 
