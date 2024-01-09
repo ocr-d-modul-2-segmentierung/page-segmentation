@@ -24,7 +24,7 @@ efficientnet==1.1.1
     # via -r requirements.in
 flatbuffers==1.12
     # via tensorflow
-fonttools==4.29.1
+fonttools==4.43.0
     # via matplotlib
 gast==0.4.0
     # via tensorflow
