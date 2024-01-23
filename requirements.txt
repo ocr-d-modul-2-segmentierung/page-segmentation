@@ -95,7 +95,7 @@ opt-einsum==3.3.0
     # via tensorflow
 packaging==21.3
     # via matplotlib
-pillow==9.0.1
+pillow==10.2.0
     # via
     #   -r requirements.in
     #   imageio
